@@ -140,6 +140,26 @@ input:focus { outline: none; border-color: var(--pink); }
 .stack { display: flex; flex-direction: column; gap: 12px; }
 .divider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; }
 .divider::before, .divider::after { content: ""; flex: 1; height: 2px; background: #eceef4; border-radius: 1px; }
+button.gold { background: var(--yellow); color: var(--ink); box-shadow: 0 5px 0 #c99400; font-size: 19px; }
+button.gold small { color: rgba(29, 35, 64, 0.7); }
+button.gold:active { box-shadow: 0 1px 0 #c99400; }
+.tabs { display: flex; gap: 6px; background: #eef0f6; border-radius: 14px; padding: 4px; }
+.tab { box-shadow: none; background: transparent; min-height: 40px; font-size: 16px; padding: 9px 6px 7px; color: var(--muted); }
+.tab:active { transform: none; box-shadow: none; }
+.tab.on { background: #fff; color: var(--ink); box-shadow: 0 2px 0 #d9dce8; }
+.lb { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 42vh; overflow-y: auto; }
+.lb li, .lbme {
+  display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 10px;
+  background: #fff; border: 2px solid #eef0f6; border-radius: 14px; padding: 8px 12px;
+}
+.lb li.me, .lbme { border-color: var(--pink); background: #fff3f7; }
+.lb .rk { font-family: var(--display); font-weight: 800; font-size: 18px; text-align: center; color: var(--muted); }
+.lb li:nth-child(1) .rk { color: #d69e00; } .lb li:nth-child(2) .rk { color: #8a93a6; } .lb li:nth-child(3) .rk { color: #c0703a; }
+.lb .nm, .lbme .nm { font-family: var(--display); font-weight: 800; font-size: 17px; line-height: 1.1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb .sub, .lbme .sub { display: block; font-family: var(--body); font-weight: 600; font-size: 11px; color: var(--muted); margin-top: 2px; }
+.lb .pt, .lbme .pt { font-family: var(--display); font-weight: 800; font-size: 20px; color: var(--pink); }
+.lbme .rk { font-family: var(--display); font-weight: 800; font-size: 15px; color: var(--pink); text-align: center; }
+.pts { margin: 0; text-align: center; font-family: var(--display); font-weight: 800; font-size: 20px; color: var(--pink); }
 button.toggle { font-size: 15px; min-height: 42px; padding: 10px 8px 8px; }
 button.toggle.off { color: var(--muted); background: #f3f4f8; }
 .howto summary { cursor: pointer; text-align: center; font-weight: 600; font-size: 14px; color: var(--teal); list-style: none; }
@@ -183,6 +203,7 @@ button.toggle.off { color: var(--muted); background: #f3f4f8; }
           <button data-diff="normal">Normal<small>Fair fight</small></button>
           <button data-diff="hard">Hard<small>Ustaad</small></button>
         </div>
+        <button id="lbBtn" class="big gold">🏆 Leaderboard<small>Top racers this week</small></button>
         <div class="row">
           <button id="musicToggle" class="toggle"></button>
           <button id="sfxToggle" class="toggle"></button>
@@ -227,6 +248,26 @@ button.toggle.off { color: var(--muted); background: #f3f4f8; }
     </div>
   </div>
 
+  <div class="overlay" id="lbScreen" hidden>
+    <div class="card">
+      <div class="banner slim">
+        <div class="endEmoji">🏆</div>
+        <h2 class="logo end">Leaderboard</h2>
+      </div>
+      <div class="body">
+        <div class="tabs" role="tablist">
+          <button id="lbWeek" class="tab on" role="tab" aria-selected="true">This week</button>
+          <button id="lbAll" class="tab" role="tab" aria-selected="false">All time</button>
+        </div>
+        <ol class="lb" id="lbList"></ol>
+        <p class="lede" id="lbStatus">Loading...</p>
+        <div class="lbme" id="lbMe" hidden></div>
+        <p class="note">Points per win: real player 10, hard bot 5, normal 3, easy 1. Weeks start Monday.</p>
+        <button id="lbBack">Back</button>
+      </div>
+    </div>
+  </div>
+
   <div class="overlay" id="waitScreen" hidden>
     <div class="card">
       <div class="banner slim">
@@ -248,6 +289,7 @@ button.toggle.off { color: var(--muted); background: #f3f4f8; }
       </div>
       <div class="body">
         <p class="lede" id="endText"></p>
+        <p class="pts" id="endPts" hidden></p>
         <div class="row">
           <button id="rematchBtn" class="primary">Rematch<small>Same lot</small></button>
           <button id="newBtn">New lot<small>Fresh jam</small></button>
@@ -820,10 +862,22 @@ function newGame(seed, opts) {
   if (!online) b.onDepart = onDepart;
 }
 
-function finish(result, text) {
+function finish(result, text, opts) {
   if (game.over) return;
   game.over = true;
   game.overAt = performance.now();
+  const pts = document.getElementById("endPts");
+  pts.hidden = true;
+  if (result === "win" && !(opts && opts.noScore)) {
+    const kind = game.mode === "online" ? "player" : game.diff || "normal";
+    const secs = (game.overAt - game.startAt) / 1000;
+    const g0 = game;
+    lbSubmit(kind, secs).then((r) => {
+      if (game !== g0 || !r) return;
+      pts.textContent = r.rank ? `+${r.points} points · #${r.rank} this week` : `+${r.points} points`;
+      pts.hidden = false;
+    });
+  }
   if (game.mode === "online") publishState(game.overAt, true);
   const g = game;
   setTimeout(() => {
@@ -1623,7 +1677,7 @@ canvas.addEventListener("pointerdown", (e) => {
 
 // ---------- screens ----------
 const $ = (id) => document.getElementById(id);
-const SCREENS = ["startScreen", "friendScreen", "waitScreen", "endScreen"];
+const SCREENS = ["startScreen", "friendScreen", "waitScreen", "endScreen", "lbScreen"];
 function showScreen(id) { for (const s of SCREENS) $(s).hidden = s !== id; }
 const randSeed = () => (Math.random() * 1e9) | 0;
 function startBot(opts, seed) {
@@ -1653,6 +1707,90 @@ function renderSoundToggles() {
 $("musicToggle").addEventListener("click", () => { setMusic(!snd.music); renderSoundToggles(); });
 $("sfxToggle").addEventListener("click", () => { setSfx(!snd.sfx); renderSoundToggles(); });
 renderSoundToggles();
+
+// ---------- leaderboard (public site only: stored in Supabase) ----------
+let supaClient = null;
+function getSupa() {
+  if (!supaClient && window.supabase && SUPA_URL && SUPA_KEY)
+    supaClient = window.supabase.createClient(SUPA_URL, SUPA_KEY, { auth: { persistSession: false }, realtime: { params: { eventsPerSecond: 20 } } });
+  return supaClient;
+}
+const inClaude = () => !!(window.claude && typeof window.claude.use === "function") && !location.hash.includes("localroom");
+async function ensureSupa() {
+  if (inClaude() || !SUPA_URL) return null;
+  if (!window.supabase) { try { await loadScript(SUPA_JS); } catch (e) { return null; } }
+  return getSupa();
+}
+function playerId() {
+  let id = "";
+  try { id = localStorage.getItem("brd-pid") || ""; } catch (e) { /* storage blocked */ }
+  if (!/^[0-9a-f-]{36}$/.test(id)) {
+    id = crypto.randomUUID ? crypto.randomUUID() : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) => (c ^ (Math.random() * 16) >> (c / 4)).toString(16));
+    try { localStorage.setItem("brd-pid", id); } catch (e) { /* storage blocked */ }
+  }
+  return id;
+}
+async function lbSubmit(kind, secs) {
+  const c = await ensureSupa();
+  if (!c) return null;
+  try {
+    const { data, error } = await c.rpc("brd_submit_result", { p_player: playerId(), p_name: myNick(), p_kind: kind, p_secs: Math.round(secs * 10) / 10 });
+    if (error || !data) return null;
+    const lb = await lbFetch("week");
+    return { points: data.points, rank: lb && lb.me ? lb.me.rank : null };
+  } catch (e) { return null; }
+}
+async function lbFetch(period) {
+  const c = await ensureSupa();
+  if (!c) return null;
+  try {
+    const { data, error } = await c.rpc("brd_leaderboard", { p_period: period, p_player: playerId() });
+    return error ? null : data;
+  } catch (e) { return null; }
+}
+function lbRow(el, r, label) {
+  const rk = document.createElement("span"); rk.className = "rk"; rk.textContent = label || String(r.rank);
+  const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = r.name || "Player";
+  const sub = document.createElement("span"); sub.className = "sub";
+  sub.textContent = `${r.wins} win${r.wins === 1 ? "" : "s"}` + (r.best ? `, fastest ${r.best}s` : "");
+  nm.appendChild(sub);
+  const pt = document.createElement("span"); pt.className = "pt"; pt.textContent = String(r.points);
+  el.replaceChildren(rk, nm, pt);
+}
+let lbPeriod = "week", lbReq = 0;
+async function openLeaderboard(period) {
+  lbPeriod = period || lbPeriod;
+  showScreen("lbScreen");
+  $("lbWeek").classList.toggle("on", lbPeriod === "week"); $("lbWeek").setAttribute("aria-selected", String(lbPeriod === "week"));
+  $("lbAll").classList.toggle("on", lbPeriod === "all"); $("lbAll").setAttribute("aria-selected", String(lbPeriod === "all"));
+  const list = $("lbList"), status = $("lbStatus"), me = $("lbMe");
+  list.replaceChildren(); me.hidden = true; status.hidden = false;
+  if (inClaude()) {
+    status.textContent = "The leaderboard lives on the public game. Wins played here inside claude.ai don't count.";
+    const a = document.createElement("a"); a.href = PUBLIC_URL; a.target = "_blank"; a.rel = "noopener"; a.textContent = " Open it";
+    status.appendChild(a);
+    return;
+  }
+  status.textContent = "Loading...";
+  const req = ++lbReq;
+  const data = await lbFetch(lbPeriod);
+  if (req !== lbReq) return;
+  if (!data) { status.textContent = "Couldn't load the leaderboard. Check your internet and try again."; return; }
+  const top = Array.isArray(data.top) ? data.top : [];
+  status.textContent = top.length ? "" : lbPeriod === "week" ? "No wins yet this week. Win a race to grab the top spot!" : "No wins yet. Be the first!";
+  status.hidden = top.length > 0;
+  for (const r of top) {
+    const li = document.createElement("li");
+    if (r.me) li.className = "me";
+    lbRow(li, r);
+    list.appendChild(li);
+  }
+  if (data.me && !top.some((r) => r.me)) { lbRow(me, data.me, "#" + data.me.rank); me.hidden = false; }
+}
+$("lbBtn").addEventListener("click", () => openLeaderboard("week"));
+$("lbWeek").addEventListener("click", () => openLeaderboard("week"));
+$("lbAll").addEventListener("click", () => openLeaderboard("all"));
+$("lbBack").addEventListener("click", () => showScreen("startScreen"));
 
 // player name (kept on this device only)
 const nickInput = $("nick");
@@ -1906,7 +2044,7 @@ function oppLeft() {
   net.oppGoneHandled = true;
   const name = net.oppNick;
   if (game && game.mode === "online" && !game.over && performance.now() >= game.startAt) {
-    finish("win", `${name} left the race. Walkover win!`);
+    finish("win", `${name} left the race. Walkover win! (Walkovers don't score points.)`, { noScore: true });
   } else if (game && game.mode === "online") {
     $("endText").textContent = `${name} left the room.`;
     $("rematchBtn").disabled = true;
@@ -1970,7 +2108,7 @@ $("waitCancel").addEventListener("click", () => { leaveRoom(); showScreen("start
 // Supabase presence tracking is used only to know who is still connected. The lobby channel is
 // opened lazily, the first time someone searches for a quick match, so idle visitors cost nothing.
 function makeSupaRoom(url, key) {
-  const client = window.supabase.createClient(url, key, { auth: { persistSession: false }, realtime: { params: { eventsPerSecond: 20 } } });
+  const client = getSupa();
   const me = (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, "") : Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).slice(0, 16);
   function mk(name, onReady) {
     const ch = client.channel("brd-" + name, { config: { broadcast: { self: false }, presence: { key: me } } });
@@ -2127,7 +2265,7 @@ function botVsBot(seed, diff) {
   }
   return { result: "timeout" };
 }
-window.BusRush = { generateLevel, solveCheck, botVsBot, Bot, sfx, state: () => game, net: () => net, audio: () => ({ state: actx && actx.state, playing: Music.playing, level: Music.level, step: Music.step, music: snd.music, sfx: snd.sfx }) };
+window.BusRush = { generateLevel, solveCheck, botVsBot, Bot, sfx, lb: { submit: lbSubmit, fetch: lbFetch, open: openLeaderboard }, state: () => game, net: () => net, audio: () => ({ state: actx && actx.state, playing: Music.playing, level: Music.level, step: Music.step, music: snd.music, sfx: snd.sfx }) };
 
 resize();
 drawHero();
