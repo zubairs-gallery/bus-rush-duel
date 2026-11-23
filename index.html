@@ -140,6 +140,8 @@ input:focus { outline: none; border-color: var(--pink); }
 .stack { display: flex; flex-direction: column; gap: 12px; }
 .divider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; }
 .divider::before, .divider::after { content: ""; flex: 1; height: 2px; background: #eceef4; border-radius: 1px; }
+button.toggle { font-size: 15px; min-height: 42px; padding: 10px 8px 8px; }
+button.toggle.off { color: var(--muted); background: #f3f4f8; }
 .howto summary { cursor: pointer; text-align: center; font-weight: 600; font-size: 14px; color: var(--teal); list-style: none; }
 .howto summary::-webkit-details-marker { display: none; }
 .howto[open] summary { margin-bottom: 10px; }
@@ -180,6 +182,10 @@ input:focus { outline: none; border-color: var(--pink); }
           <button data-diff="easy">Easy<small>Chill</small></button>
           <button data-diff="normal">Normal<small>Fair fight</small></button>
           <button data-diff="hard">Hard<small>Ustaad</small></button>
+        </div>
+        <div class="row">
+          <button id="musicToggle" class="toggle"></button>
+          <button id="sfxToggle" class="toggle"></button>
         </div>
         <details class="howto">
           <summary>How to play</summary>
@@ -425,6 +431,7 @@ class Board {
         s.ids.push(this.boarded);
         this.hops.push({ color: c, slot: this.slots.indexOf(s), t0: now, id: this.boarded });
         this.boarded++;
+        if (this.onBoard) this.onBoard(s.filled);
         this.lastBoard = now;
         if (s.filled >= s.bus.cap) { s.state = "departing"; s.t0 = now; }
       }
@@ -535,37 +542,225 @@ class Bot {
 }
 
 // ---------- sound ----------
-let actx = null;
+// Everything is synthesised with WebAudio: no audio files. Two buses (sfx, music) feed a
+// compressor so stacked sounds never clip. Settings are remembered on this device.
+function loadPref(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v === "1"; } catch (e) { return d; } }
+function savePref(k, v) { try { localStorage.setItem(k, v ? "1" : "0"); } catch (e) { /* storage blocked */ } }
+const snd = { sfx: loadPref("brd-sfx", true), music: loadPref("brd-music", true) };
+let actx = null, sfxBus = null, musicBus = null, noiseBuf = null;
 function audio() {
   if (!actx) {
     try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; }
+    if (actx) setupBuses();
   }
-  if (actx && actx.state === "suspended") actx.resume().catch(() => {});
+  if (actx && actx.state === "suspended" && !document.hidden) actx.resume().catch(() => {});
+  if (actx && snd.music && !(game && game.over && performance.now() - game.overAt < 2500)) Music.start();
   return actx;
 }
-function tone(freq, dur, type, vol, when = 0, slide) {
-  const a = actx; if (!a) return;
-  const t = a.currentTime + when;
-  const o = a.createOscillator(), g = a.createGain();
-  o.type = type; o.frequency.setValueAtTime(freq, t);
-  if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
-  g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(vol, t + 0.015);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  o.connect(g).connect(a.destination);
-  o.start(t); o.stop(t + dur + 0.02);
+function setupBuses() {
+  const comp = actx.createDynamicsCompressor();
+  comp.threshold.value = -12; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.2;
+  comp.connect(actx.destination);
+  sfxBus = actx.createGain(); sfxBus.gain.value = snd.sfx ? 1 : 0; sfxBus.connect(comp);
+  musicBus = actx.createGain(); musicBus.gain.value = snd.music ? 0.55 : 0; musicBus.connect(comp);
+  noiseBuf = actx.createBuffer(1, actx.sampleRate, actx.sampleRate);
+  const d = noiseBuf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
 }
+function setSfx(on) { snd.sfx = on; savePref("brd-sfx", on); if (sfxBus) sfxBus.gain.setTargetAtTime(on ? 1 : 0, actx.currentTime, 0.02); }
+function setMusic(on) {
+  snd.music = on; savePref("brd-music", on);
+  if (musicBus) musicBus.gain.setTargetAtTime(on ? 0.55 : 0, actx.currentTime, 0.05);
+  if (on) audio(); else Music.stop();
+}
+
+// one oscillator note. o: { f, f1, type, dur, vol, at, bus, attack, filter, fq, q, vib, vibRate, glideFrom }
+function voice(o) {
+  const a = actx; if (!a) return;
+  const t = o.at != null ? o.at : a.currentTime + (o.when || 0);
+  const dur = o.dur || 0.1, vol = o.vol || 0.05, atk = o.attack || 0.008;
+  const osc = a.createOscillator(), g = a.createGain();
+  osc.type = o.type || "sine";
+  osc.frequency.setValueAtTime(o.glideFrom || o.f, t);
+  if (o.glideFrom) osc.frequency.exponentialRampToValueAtTime(o.f, t + 0.04);
+  if (o.f1) osc.frequency.exponentialRampToValueAtTime(o.f1, t + dur);
+  if (o.detune) osc.detune.value = o.detune;
+  let node = osc;
+  if (o.vib) {
+    const lfo = a.createOscillator(), lg = a.createGain();
+    lfo.frequency.value = o.vibRate || 6; lg.gain.value = o.vib;
+    lfo.connect(lg).connect(osc.frequency); lfo.start(t); lfo.stop(t + dur + 0.05);
+  }
+  if (o.filter) {
+    const fl = a.createBiquadFilter(); fl.type = o.filter; fl.frequency.value = o.fq || 1200; fl.Q.value = o.q || 0.8;
+    node.connect(fl); node = fl;
+  }
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + atk);
+  g.gain.setValueAtTime(vol, t + Math.max(atk, dur * (o.hold || 0.3)));
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  node.connect(g).connect(o.bus || sfxBus);
+  osc.start(t); osc.stop(t + dur + 0.05);
+}
+// filtered noise burst. o: { dur, vol, at, filter, fq, fq1, q, bus }
+function noise(o) {
+  const a = actx; if (!a) return;
+  const t = o.at != null ? o.at : a.currentTime + (o.when || 0);
+  const dur = o.dur || 0.1;
+  const src = a.createBufferSource(); src.buffer = noiseBuf;
+  const fl = a.createBiquadFilter(); fl.type = o.filter || "bandpass"; fl.Q.value = o.q || 1;
+  fl.frequency.setValueAtTime(o.fq || 2000, t);
+  if (o.fq1) fl.frequency.exponentialRampToValueAtTime(o.fq1, t + dur);
+  const g = a.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(o.vol || 0.05, t + (o.attack || 0.004));
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(fl).connect(g).connect(o.bus || sfxBus);
+  src.start(t, Math.random() * 0.5); src.stop(t + dur + 0.05);
+}
+const midi = (m) => 440 * Math.pow(2, (m - 69) / 12);
+
 const sfx = {
-  horn() { tone(392, 0.13, "square", 0.05); tone(311, 0.2, "square", 0.05, 0.15); },
-  bonk() { tone(140, 0.12, "sine", 0.12, 0, 90); },
-  tap() { tone(660, 0.05, "triangle", 0.05); },
-  goat() { tone(520, 0.5, "sawtooth", 0.04, 0, 430); tone(560, 0.35, "sawtooth", 0.02, 0.05, 470); },
-  zap() { tone(900, 0.18, "square", 0.03, 0, 1800); },
-  win() { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.18, "triangle", 0.07, i * 0.11)); },
-  lose() { [392, 330, 262].forEach((f, i) => tone(f, 0.25, "triangle", 0.07, i * 0.16)); },
+  // bus pulls out: a little engine rev
+  tap() {
+    voice({ type: "sawtooth", f: 90, f1: 210, dur: 0.24, vol: 0.07, filter: "lowpass", fq: 900 });
+    noise({ dur: 0.18, vol: 0.03, filter: "lowpass", fq: 600 });
+  },
+  // bus can't move: thud + short squeaky horn
+  bonk() {
+    voice({ f: 150, f1: 80, dur: 0.14, vol: 0.14 });
+    voice({ type: "square", f: 990, dur: 0.07, vol: 0.025, when: 0.03, filter: "lowpass", fq: 2500 });
+  },
+  // a passenger hops on; pitch climbs as the bus fills
+  pop(n) { voice({ f: 520 + n * 110, f1: (520 + n * 110) * 1.5, dur: 0.07, vol: 0.06, type: "triangle" }); },
+  // full bus leaves: two-blast truck horn
+  horn() {
+    for (const [w, d] of [[0, 0.12], [0.16, 0.22]]) {
+      voice({ type: "square", f: 349, dur: d, vol: 0.035, when: w, filter: "lowpass", fq: 1800, hold: 0.8 });
+      voice({ type: "square", f: 440, dur: d, vol: 0.03, when: w, filter: "lowpass", fq: 1800, hold: 0.8, detune: 8 });
+    }
+  },
+  // we threw an attack
+  whoosh() {
+    noise({ dur: 0.32, vol: 0.09, filter: "bandpass", fq: 400, fq1: 3500, q: 2 });
+    voice({ type: "triangle", f: 600, f1: 1400, dur: 0.22, vol: 0.03 });
+  },
+  // attacks that land on us
+  hit(kind) {
+    if (kind === "goat") {
+      voice({ type: "sawtooth", f: 560, f1: 470, dur: 0.55, vol: 0.06, vib: 45, vibRate: 17, filter: "lowpass", fq: 1900, hold: 0.7 });
+      voice({ type: "sawtooth", f: 600, f1: 520, dur: 0.35, vol: 0.03, vib: 40, vibRate: 19, when: 0.05, filter: "lowpass", fq: 2200 });
+    } else if (kind === "chai") {
+      voice({ f: 1760, dur: 0.6, vol: 0.06, hold: 0.05 });
+      voice({ f: 2637, dur: 0.4, vol: 0.03, hold: 0.05 });
+      noise({ dur: 0.45, vol: 0.025, filter: "highpass", fq: 5000, when: 0.08 });
+    } else {
+      [2093, 2637, 3136, 4186].forEach((f, i) => voice({ f, dur: 0.25, vol: 0.035, when: i * 0.05, hold: 0.1 }));
+      noise({ dur: 0.6, vol: 0.03, filter: "highpass", fq: 6000 });
+    }
+  },
+  tick() { voice({ type: "square", f: 660, dur: 0.09, vol: 0.04, filter: "lowpass", fq: 2000 }); },
+  go() {
+    [523, 659, 784].forEach((f) => voice({ type: "square", f, dur: 0.35, vol: 0.025, filter: "lowpass", fq: 2500, hold: 0.5 }));
+    noise({ dur: 0.2, vol: 0.04, filter: "highpass", fq: 4000 });
+  },
+  warn() { voice({ f: 740, dur: 0.08, vol: 0.05 }); voice({ f: 554, dur: 0.12, vol: 0.05, when: 0.1 }); },
+  click() { voice({ type: "triangle", f: 900, f1: 1200, dur: 0.04, vol: 0.03 }); },
+  win() {
+    [523, 659, 784, 1046].forEach((f, i) => voice({ type: "square", f, dur: 0.16, vol: 0.03, when: i * 0.1, filter: "lowpass", fq: 3000 }));
+    [523, 659, 784, 1046].forEach((f) => voice({ type: "triangle", f, dur: 0.9, vol: 0.03, when: 0.42, hold: 0.4 }));
+    for (let i = 0; i < 6; i++) noise({ dur: 0.06, vol: 0.03, filter: "highpass", fq: 6000, when: 0.42 + i * 0.09 });
+  },
+  lose() {
+    [392, 370, 349].forEach((f, i) => voice({ type: "sawtooth", f, dur: 0.32, vol: 0.04, when: i * 0.32, filter: "lowpass", fq: 1100, hold: 0.7 }));
+    voice({ type: "sawtooth", f: 330, f1: 300, dur: 0.9, vol: 0.045, when: 0.96, vib: 9, vibRate: 5, filter: "lowpass", fq: 1000, hold: 0.6 });
+  },
 };
 
-function buzz(pattern) { try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) { /* no haptics */ } }
+// Background music: a bhangra-style dhol loop with a Dorian (Kafi-flavoured) melody.
+// 8 bars: bars 1-4 carry the melody, bars 5-8 let the rhythm breathe.
+// level 0 = menu (soft, slow), 1 = race, 2 = tension (faster, busier drums).
+const MELODY = [
+  [[0, 69, 2], [2, 72, 2], [4, 74, 3], [7, 72, 1], [8, 69, 2], [10, 67, 2], [12, 69, 4]],
+  [[0, 65, 2], [2, 67, 2], [4, 69, 2], [6, 67, 1], [7, 65, 1], [8, 64, 2], [10, 62, 6]],
+  [[0, 69, 2], [2, 72, 2], [4, 74, 2], [6, 76, 2], [8, 74, 2], [10, 72, 1], [11, 74, 1], [12, 76, 4]],
+  [[0, 74, 2], [2, 72, 2], [4, 69, 2], [6, 67, 2], [8, 65, 2], [10, 64, 2], [12, 62, 4]],
+];
+const BASS_ROOTS = [38, 38, 36, 33, 38, 38, 36, 33]; // D D C A
+const Music = {
+  playing: false, level: 0, step: 0, next: 0, timer: 0, lastNote: 0,
+  bpm() { return [96, 116, 132][this.level]; },
+  start() {
+    if (this.playing || !actx || !snd.music) return;
+    this.playing = true;
+    this.step = 0;
+    this.next = actx.currentTime + 0.08;
+    this.timer = setInterval(() => this.schedule(), 25);
+  },
+  stop() { this.playing = false; clearInterval(this.timer); },
+  setLevel(l) { if (l !== this.level) this.level = l; },
+  resync() { if (actx) this.next = Math.max(this.next, actx.currentTime + 0.05); },
+  schedule() {
+    if (!actx || actx.state !== "running") return;
+    if (this.next < actx.currentTime - 0.2) this.next = actx.currentTime + 0.05; // after a stall, don't burst
+    while (this.next < actx.currentTime + 0.12) {
+      const spb = 60 / this.bpm() / 4;
+      this.play(this.step, this.next, spb);
+      this.next += spb;
+      this.step = (this.step + 1) % 128;
+    }
+  },
+  play(s, t, spb) {
+    const bar = Math.floor(s / 16), st = s % 16, lv = this.level, bus = musicBus;
+    const root = BASS_ROOTS[bar];
+    // harmonium drone, re-struck every 2 bars
+    if (st === 0 && bar % 2 === 0) {
+      for (const [m, det] of [[50, -6], [57, 6], [62, 0]])
+        voice({ at: t, type: "sawtooth", f: midi(m), dur: spb * 32, vol: lv ? 0.012 : 0.016, attack: 0.25, hold: 0.85, filter: "lowpass", fq: 850, detune: det, bus });
+    }
+    // shaker on the off-beats
+    if (st % 4 === 2 || (lv === 2 && st % 2 === 1)) noise({ at: t, dur: 0.05, vol: lv ? 0.018 : 0.012, filter: "highpass", fq: 7000, bus });
+    // bass
+    if (st === 0 || st === 8 || (lv > 0 && (st === 6 || st === 14))) {
+      const m = st === 6 || st === 14 ? root + 7 : root;
+      voice({ at: t, type: "triangle", f: midi(m), dur: spb * 2.2, vol: lv ? 0.09 : 0.06, hold: 0.5, bus });
+    }
+    if (lv === 0) return;
+    // dhol: low "dha" and high "tak"
+    if ([0, 6, 8, 14].includes(st) || (lv === 2 && st === 11)) {
+      voice({ at: t, f: 105, f1: 52, dur: 0.2, vol: 0.13, attack: 0.002, hold: 0.05, bus });
+      noise({ at: t, dur: 0.03, vol: 0.03, filter: "lowpass", fq: 900, bus });
+    }
+    if ([3, 10, 11, 15].includes(st) || (lv === 2 && (st === 5 || st === 13))) {
+      noise({ at: t, dur: 0.07, vol: 0.05, filter: "bandpass", fq: 1900, q: 3, bus });
+      voice({ at: t, f: 420, f1: 330, dur: 0.06, vol: 0.03, attack: 0.002, hold: 0.05, bus });
+    }
+    // melody (shehnai-ish reed: filtered saw with vibrato and a small glide into each note)
+    if (bar < 4) {
+      for (const [ns, m, len] of MELODY[bar]) {
+        if (ns !== st) continue;
+        const f = midi(m);
+        voice({ at: t, type: "sawtooth", f, glideFrom: this.lastNote ? midi(this.lastNote) : 0, dur: spb * len * 0.95, vol: 0.03, attack: 0.02, hold: 0.7, filter: "lowpass", fq: 2200, vib: f * 0.012, vibRate: 5.5, bus });
+        this.lastNote = m;
+      }
+    }
+  },
+};
+document.addEventListener("visibilitychange", () => {
+  if (!actx) return;
+  if (document.hidden) actx.suspend().catch(() => {});
+  else actx.resume().then(() => Music.resync()).catch(() => {});
+});
+// first touch anywhere unlocks audio (browsers require a gesture) and starts the menu music
+document.addEventListener("pointerdown", () => audio(), { capture: true });
+document.addEventListener("click", (e) => { if (e.target.closest && e.target.closest("button")) sfx.click(); }, true);
+
+function buzz(pattern) {
+  try {
+    const ua = navigator.userActivation;
+    if (navigator.vibrate && (!ua || ua.hasBeenActive)) navigator.vibrate(pattern);
+  } catch (e) { /* no haptics */ }
+}
 
 // ---------- game state ----------
 const canvas = document.getElementById("game");
@@ -613,14 +808,15 @@ function newGame(seed, opts) {
       const msg = { goat: `Goat sent to ${opp}!`, freeze: `${opp} is frozen!`, chai: `Chai stall dropped on ${opp}!` }[applied];
       p.setFlash(msg, t, "#ffb199");
       b.hitAt = t;
-      sfx.zap();
+      sfx.whoosh();
     } else {
       const applied = applyAttack(p, kind, t, opp);
-      applied === "goat" ? sfx.goat() : sfx.zap();
+      sfx.hit(applied);
       buzz(80);
     }
   };
   p.onDepart = onDepart;
+  p.onBoard = (n) => sfx.pop(n);
   if (!online) b.onDepart = onDepart;
 }
 
@@ -643,6 +839,7 @@ function finish(result, text) {
     document.getElementById("menuBtn").textContent = online ? "Leave room" : "Main menu";
     showScreen("endScreen");
   }, 900);
+  Music.stop();
   result === "win" ? sfx.win() : sfx.lose();
   buzz(result === "win" ? [30, 50, 30] : 120);
 }
@@ -704,7 +901,7 @@ function receiveAttacks(st, now) {
     const kind = CODE_ATTACK[ak[i - first]] || "freeze";
     if (game.over) continue;
     const applied = applyAttack(game.player, kind, now, game.oppName);
-    applied === "goat" ? sfx.goat() : sfx.zap();
+    sfx.hit(applied);
     buzz(80);
   }
   game.atkSeen = an;
@@ -1290,7 +1487,14 @@ function drawBar(p, now) {
   ctx.globalAlpha = p.meter ? 1 : 0.5;
   ctx.fillText("🐐❄️☕", x + 14 + 72, y + 37);
   ctx.globalAlpha = 1;
-  const rx = x + w * 0.52, rw = x + w - 14 - rx;
+  const br = 17, bcx = x + w - 12 - br, bcy = y + h / 2;
+  L.musicBtn = { x: bcx, y: bcy, r: br + 6 };
+  ctx.fillStyle = snd.music ? "#ffe3ec" : "#eceef6"; circle(bcx, bcy, br); ctx.fill();
+  ctx.fillStyle = snd.music ? PINK : MUTED; ctx.font = F(20, 800); ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText("\u266B", bcx, bcy + 1);
+  if (!snd.music) { ctx.strokeStyle = MUTED; ctx.lineWidth = 2.5; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(bcx - 10, bcy + 10); ctx.lineTo(bcx + 10, bcy - 10); ctx.stroke(); }
+  ctx.textAlign = "left";
+  const rx = x + w * 0.46, rw = bcx - br - 12 - rx;
   ctx.textBaseline = "alphabetic"; ctx.fillStyle = INK; ctx.font = F(16, 800);
   ctx.fillText("You", rx, y + 22);
   ctx.textAlign = "right"; ctx.fillStyle = MUTED; ctx.font = F(12, 700);
@@ -1367,7 +1571,25 @@ function drawHero() {
 }
 
 // ---------- loop ----------
+function audioFrame(now) {
+  if (!game) { Music.setLevel(0); return; }
+  if (game.over) return;
+  const left = (game.startAt - now) / 1000;
+  if (left > -0.5) {
+    const k = left > 1.8 ? 3 : left > 1.1 ? 2 : left > 0.4 ? 1 : 0;
+    if (k !== game.cd) { game.cd = k; k ? sfx.tick() : sfx.go(); }
+  }
+  const p = game.player, b = game.bot;
+  const tense = p.usedSlots() >= 4 || b.departed / b.totalBuses > 0.7 || p.departed / p.totalBuses > 0.8;
+  Music.setLevel(now < game.startAt ? 0 : tense ? 2 : 1);
+  if (now >= game.startAt) {
+    const free = SLOTS - p.usedSlots() - p.locked.filter((x) => x > now).length;
+    if (game.lastFree != null && free === 1 && game.lastFree > 1) sfx.warn();
+    game.lastFree = free;
+  }
+}
 function frame(now) {
+  audioFrame(now);
   if (game && !game.over && now >= game.startAt) {
     game.player.update(now);
     if (game.mode === "online") netFrame(now);
@@ -1380,11 +1602,14 @@ function frame(now) {
 
 // ---------- input ----------
 canvas.addEventListener("pointerdown", (e) => {
-  if (!game || game.over) return;
-  const now = performance.now();
-  if (now < game.startAt) return;
+  if (!game) return;
   const r = canvas.getBoundingClientRect();
   const px = e.clientX - r.left, py = e.clientY - r.top;
+  const mb = L.musicBtn;
+  if (mb && Math.hypot(px - mb.x, py - mb.y) <= mb.r) { setMusic(!snd.music); renderSoundToggles(); return; }
+  if (game.over) return;
+  const now = performance.now();
+  if (now < game.startAt) return;
   const cx = Math.floor((px - L.lotX) / L.cell), cy = Math.floor((py - L.lotY) / L.cell);
   if (cx < 0 || cy < 0 || cx >= GW || cy >= GH) return;
   const b = game.player.busAt(cx, cy);
@@ -1415,7 +1640,19 @@ $("rematchBtn").addEventListener("click", () => {
   startBot(lastOpts, game ? game.seed : randSeed());
 });
 $("newBtn").addEventListener("click", () => startBot(lastOpts, randSeed()));
-$("menuBtn").addEventListener("click", () => { leaveRoom(); game = null; showScreen("startScreen"); });
+$("menuBtn").addEventListener("click", () => { leaveRoom(); game = null; showScreen("startScreen"); audio(); });
+
+// sound settings (kept on this device only)
+function renderSoundToggles() {
+  const m = $("musicToggle"), s = $("sfxToggle");
+  m.textContent = snd.music ? "🎵 Music on" : "🎵 Music off";
+  s.textContent = snd.sfx ? "🔊 Sounds on" : "🔇 Sounds off";
+  m.classList.toggle("off", !snd.music);
+  s.classList.toggle("off", !snd.sfx);
+}
+$("musicToggle").addEventListener("click", () => { setMusic(!snd.music); renderSoundToggles(); });
+$("sfxToggle").addEventListener("click", () => { setSfx(!snd.sfx); renderSoundToggles(); });
+renderSoundToggles();
 
 // player name (kept on this device only)
 const nickInput = $("nick");
@@ -1513,6 +1750,7 @@ function lobbyTick() {
   if (net.want !== want) { net.want = want; net.room.presence({ want }).catch(() => {}); }
   if (cand && cand.presence.want === me) {
     const name = "q-" + [cleanPeer(me), cleanPeer(cand.peer)].sort().join("-");
+    net.mode = "matched"; // before any presence call: our own update must not re-enter matching
     net.room.presence({ qm: null, room: name }).catch(() => {});
     matched(name, cand);
   }
@@ -1632,6 +1870,7 @@ function roomTick() {
   }
 }
 function startOnline(seed) {
+  audio();
   showScreen(null);
   newGame(seed, { mode: "online", oppName: net.oppNick, tag: net.tag, round: net.round });
   publishState(performance.now(), true);
@@ -1738,11 +1977,13 @@ function makeSupaRoom(url, key) {
     let mine = {}, snap = Object.freeze([]), live = false, ready = false;
     let online = new Set();
     const others = new Map(), subs = new Set(), errs = new Set();
+    let pending = false;
+    const notify = () => { if (pending) return; pending = true; setTimeout(() => { pending = false; subs.forEach((f) => f({ peers: snap })); }, 0); };
     const rebuild = () => {
       const list = [{ peer: me, isMe: true, sameTab: true, kind: "viewer", guest: false, by: null, presence: mine }];
       for (const [peer, o] of others) if (online.has(peer)) list.push({ peer, isMe: false, sameTab: false, kind: "viewer", guest: false, by: null, presence: o.p });
       snap = Object.freeze(list);
-      subs.forEach((f) => f({ peers: snap }));
+      notify();
     };
     const send = () => { if (live) ch.send({ type: "broadcast", event: "p", payload: { peer: me, p: mine } }).catch(() => {}); };
     ch.on("broadcast", { event: "p" }, ({ payload }) => {
@@ -1823,9 +2064,11 @@ function makeLocalRoom() {
     const bc = new BroadcastChannel("brd-" + name);
     let mine = {}, snap = Object.freeze([]);
     const others = new Map(), subs = new Set();
+    let pending = false;
+    const notify = () => { if (pending) return; pending = true; setTimeout(() => { pending = false; subs.forEach((f) => f({ peers: snap })); }, 0); };
     const rebuild = () => {
       snap = Object.freeze([{ peer: me, isMe: true, sameTab: true, presence: mine }, ...[...others].map(([peer, o]) => ({ peer, isMe: false, sameTab: false, presence: o.p }))]);
-      subs.forEach((f) => f({ peers: snap }));
+      notify();
     };
     const send = () => bc.postMessage({ t: "p", peer: me, p: mine });
     bc.onmessage = (e) => {
@@ -1884,7 +2127,7 @@ function botVsBot(seed, diff) {
   }
   return { result: "timeout" };
 }
-window.BusRush = { generateLevel, solveCheck, botVsBot, Bot, state: () => game, net: () => net };
+window.BusRush = { generateLevel, solveCheck, botVsBot, Bot, sfx, state: () => game, net: () => net, audio: () => ({ state: actx && actx.state, playing: Music.playing, level: Music.level, step: Music.step, music: snd.music, sfx: snd.sfx }) };
 
 resize();
 drawHero();
