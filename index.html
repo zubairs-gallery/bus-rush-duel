@@ -1,0 +1,1910 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Bus Rush Duel</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#5fb04a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Inter:wght@400;600&display=swap">
+<style>
+/* Portrait mobile game. Sunny top-down bus adda: grass, beige pavement, asphalt lot with black/yellow kerbs.
+   Canvas draws the game; HTML cards are the start/end screens. Single committed light theme. */
+:root {
+  --ink: #1d2340;
+  --muted: #5f6786;
+  --paper: #fffdf7;
+  --pink: #ff3d7f;
+  --pink-d: #c8215a;
+  --yellow: #ffc21a;
+  --teal: #13889b;
+  --grass: #6fbf52;
+  --display: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
+  --body: "Inter", system-ui, -apple-system, sans-serif;
+  color-scheme: light;
+}
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--grass);
+  color: var(--ink);
+  font-family: var(--body);
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#wrap { position: fixed; inset: 0; }
+#game { display: block; width: 100%; height: 100%; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+#sa { position: absolute; top: 0; left: 0; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); visibility: hidden; pointer-events: none; }
+.overlay {
+  position: absolute; inset: 0;
+  display: flex; overflow-y: auto;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  background: rgba(16, 28, 44, 0.5);
+  -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+}
+.card {
+  margin: auto;
+  width: 100%; max-width: 380px;
+  background: var(--paper);
+  border-radius: 28px;
+  overflow: hidden;
+  box-shadow: 0 10px 0 rgba(0, 0, 0, 0.16), 0 24px 60px rgba(0, 0, 0, 0.35);
+  animation: pop 0.38s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+@keyframes pop { from { transform: scale(0.86); opacity: 0; } }
+.banner {
+  position: relative;
+  background: radial-gradient(120% 100% at 50% 0%, #22b8ca, #0e6a80);
+  padding: 20px 18px 24px;
+  text-align: center;
+}
+.banner::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 10px;
+  background: repeating-linear-gradient(90deg, var(--pink) 0 18px, var(--yellow) 18px 36px, #2fbf62 36px 54px, #2f86f0 54px 72px);
+}
+.logo {
+  margin: 0;
+  font-family: var(--display); font-weight: 800;
+  font-size: 52px; line-height: 0.9; letter-spacing: 0.01em;
+  color: var(--yellow);
+  -webkit-text-stroke: 8px var(--ink); paint-order: stroke fill;
+  text-shadow: 0 5px 0 var(--ink);
+  text-wrap: balance;
+}
+.logo.end { font-size: 42px; }
+.tag {
+  display: inline-block; margin-top: 10px;
+  background: var(--pink); color: #fff;
+  font-family: var(--display); font-weight: 800; font-size: 22px; line-height: 1;
+  padding: 7px 18px 4px; border-radius: 10px;
+  letter-spacing: 0.16em;
+  transform: rotate(-3deg);
+  box-shadow: 0 4px 0 var(--pink-d);
+}
+#hero { display: block; width: 236px; height: 96px; margin: 10px auto 0; }
+.endEmoji { font-size: 56px; line-height: 1; margin-bottom: 6px; }
+.body { padding: 18px 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+.lede { margin: 0; font-size: 15px; line-height: 1.45; color: var(--muted); text-align: center; text-wrap: pretty; }
+.rules { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.rules li { display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: center; font-size: 14px; line-height: 1.35; }
+.rules b {
+  width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-family: var(--display); font-weight: 800; font-size: 16px; color: #fff;
+  background: var(--teal); box-shadow: 0 3px 0 rgba(0, 0, 0, 0.18);
+}
+.rules li:nth-child(2) b { background: #2fbf62; }
+.rules li:nth-child(3) b { background: #ff8a1f; }
+.rules li:nth-child(4) b { background: var(--pink); }
+.label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); text-align: center; }
+.row { display: flex; gap: 10px; }
+button {
+  font-family: var(--display); font-weight: 800; font-size: 19px; line-height: 1;
+  border: 0; border-radius: 16px;
+  padding: 14px 8px 11px;
+  flex: 1 1 0; min-width: 0; min-height: 52px;
+  cursor: pointer;
+  background: #fff; color: var(--ink);
+  box-shadow: inset 0 0 0 2px #e3e6ef, 0 5px 0 #cfd4e2;
+  touch-action: manipulation;
+  transition: transform 0.06s, box-shadow 0.06s;
+}
+button small { display: block; font-family: var(--body); font-weight: 600; font-size: 11px; color: var(--muted); margin-top: 5px; }
+button:active { transform: translateY(4px); box-shadow: inset 0 0 0 2px #e3e6ef, 0 1px 0 #cfd4e2; }
+button.primary { background: var(--pink); color: #fff; box-shadow: 0 5px 0 var(--pink-d); }
+button.primary small { color: rgba(255, 255, 255, 0.88); }
+button.primary:active { box-shadow: 0 1px 0 var(--pink-d); }
+button:focus-visible { outline: 3px solid var(--yellow); outline-offset: 3px; }
+.note { font-size: 12px; color: var(--muted); text-align: center; }
+button.big { display: block; width: 100%; flex: none; font-size: 21px; padding: 15px 12px 12px; }
+button.alt { background: var(--teal); color: #fff; box-shadow: 0 5px 0 #0b5a6a; }
+button.alt small { color: rgba(255, 255, 255, 0.85); }
+button.alt:active { box-shadow: 0 1px 0 #0b5a6a; }
+button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+.namefield { display: grid; gap: 6px; }
+.namefield .label { text-align: left; }
+input {
+  font: 700 18px var(--display); color: var(--ink);
+  background: #fff; border: 2px solid #e3e6ef; border-radius: 14px;
+  padding: 11px 14px 9px; width: 100%; min-width: 0;
+}
+input:focus { outline: none; border-color: var(--pink); }
+.codein { text-transform: uppercase; letter-spacing: 0.3em; text-align: center; font-size: 22px; flex: 1.4 1 0; }
+.code {
+  font-family: var(--display); font-weight: 800; font-size: 56px; line-height: 1;
+  letter-spacing: 0.18em; text-align: center; color: var(--ink);
+  background: #fff3c9; border: 3px dashed var(--yellow); border-radius: 18px; padding: 14px 0 8px;
+}
+.stack { display: flex; flex-direction: column; gap: 12px; }
+.divider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; }
+.divider::before, .divider::after { content: ""; flex: 1; height: 2px; background: #eceef4; border-radius: 1px; }
+.howto summary { cursor: pointer; text-align: center; font-weight: 600; font-size: 14px; color: var(--teal); list-style: none; }
+.howto summary::-webkit-details-marker { display: none; }
+.howto[open] summary { margin-bottom: 10px; }
+.note.err { color: #c8215a; font-weight: 600; }
+.banner.slim { padding: 18px 18px 22px; }
+.bounce { animation: bounce 0.7s ease-in-out infinite alternate; }
+@keyframes bounce { to { transform: translateY(-8px) rotate(-4deg); } }
+@media (max-height: 760px) {
+  #hero { display: none; }
+  .logo { font-size: 44px; }
+  .body { gap: 11px; padding-top: 14px; }
+  .rules li { font-size: 13px; }
+}
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div id="wrap">
+  <canvas id="game" aria-label="Bus Rush Duel game board"></canvas>
+  <div id="sa"></div>
+
+  <div class="overlay" id="startScreen">
+    <div class="card">
+      <div class="banner">
+        <h1 class="logo">Bus Rush</h1>
+        <div class="tag">DUEL</div>
+        <canvas id="hero" aria-hidden="true"></canvas>
+      </div>
+      <div class="body">
+        <label class="namefield">
+          <span class="label">Your name</span>
+          <input id="nick" maxlength="12" autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="done">
+        </label>
+        <button id="friendBtn" class="primary big">Play a friend<small>Share a room code, each on your own phone</small></button>
+        <button id="quickBtn" class="big alt">Quick match<small id="quickSub">A random player, or a bot if nobody's free</small></button>
+        <p class="note" id="onlineNote" hidden>Online play isn't available right now. Practice still works.</p>
+        <div class="divider"><span>or practice vs Bilal</span></div>
+        <div class="row">
+          <button data-diff="easy">Easy<small>Chill</small></button>
+          <button data-diff="normal">Normal<small>Fair fight</small></button>
+          <button data-diff="hard">Hard<small>Ustaad</small></button>
+        </div>
+        <details class="howto">
+          <summary>How to play</summary>
+          <ul class="rules">
+            <li><b>1</b><span>Tap a bus to drive it out. It only moves if the road in front of it is clear.</span></li>
+            <li><b>2</b><span>Passengers hop onto buses of their colour. A full bus honks and leaves.</span></li>
+            <li><b>3</b><span>Only 5 bays. Park the wrong buses and your adda jams.</span></li>
+            <li><b>4</b><span>Every 2 buses you send off throws a goat, a freeze or a chai stall at your opponent.</span></li>
+          </ul>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="friendScreen" hidden>
+    <div class="card">
+      <div class="banner slim">
+        <div class="endEmoji">🤝</div>
+        <h2 class="logo end">Play a friend</h2>
+      </div>
+      <div class="body">
+        <div id="friendStart" class="stack">
+          <button id="createBtn" class="primary big">Create a room<small>Get a code to send your friend</small></button>
+          <div class="divider"><span>or join one</span></div>
+          <div class="row">
+            <input id="codeInput" class="codein" placeholder="78YK" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go" aria-label="Room code">
+            <button id="joinBtn" class="primary">Join</button>
+          </div>
+        </div>
+        <div id="friendRoom" class="stack" hidden>
+          <div class="label">Room code</div>
+          <div class="code" id="roomCode">----</div>
+          <button id="shareBtn" class="primary big">Send invite<small>WhatsApp or copy the message</small></button>
+          <p class="lede" id="roomStatus">Waiting for your friend to join...</p>
+        </div>
+        <p class="note err" id="friendErr" hidden></p>
+        <button id="friendBack">Back</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="waitScreen" hidden>
+    <div class="card">
+      <div class="banner slim">
+        <div class="endEmoji bounce">🚌</div>
+        <h2 class="logo end" id="waitTitle">Finding a player</h2>
+      </div>
+      <div class="body">
+        <p class="lede" id="waitText"></p>
+        <button id="waitCancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="endScreen" hidden>
+    <div class="card">
+      <div class="banner">
+        <div class="endEmoji" id="endEmoji">🏆</div>
+        <h2 class="logo end" id="endTitle">Shabash!</h2>
+      </div>
+      <div class="body">
+        <p class="lede" id="endText"></p>
+        <div class="row">
+          <button id="rematchBtn" class="primary">Rematch<small>Same lot</small></button>
+          <button id="newBtn">New lot<small>Fresh jam</small></button>
+        </div>
+        <div class="row">
+          <button id="menuBtn">Change difficulty</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+"use strict";
+
+// ---------- constants ----------
+const GW = 6, GH = 7, SLOTS = 5;
+const LEAVE_MS = 260, BOARD_MS = 105, DEPART_MS = 420;
+const COLORS = ["#f2463f", "#2fbf62", "#2f86f0", "#ffc21a", "#c94fe0", "#ff8a1f"];
+const COLOR_NAMES = ["red", "green", "blue", "yellow", "pink", "orange"];
+const DIFFS = {
+  easy:   { think: 2900, mistake: 0.3 },
+  normal: { think: 2000, mistake: 0.14 },
+  hard:   { think: 1350, mistake: 0.05 },
+};
+const ATTACKS = ["goat", "freeze", "chai"];
+
+// ---------- rng ----------
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// ---------- geometry ----------
+const isVert = (d) => d === "U" || d === "D";
+function cellsOf(b) {
+  const out = [];
+  for (let i = 0; i < b.len; i++) out.push(isVert(b.dir) ? [b.x, b.y + i] : [b.x + i, b.y]);
+  return out;
+}
+function pathOf(b) {
+  const p = [];
+  if (b.dir === "U") for (let y = b.y - 1; y >= 0; y--) p.push([b.x, y]);
+  if (b.dir === "D") for (let y = b.y + b.len; y < GH; y++) p.push([b.x, y]);
+  if (b.dir === "L") for (let x = b.x - 1; x >= 0; x--) p.push([x, b.y]);
+  if (b.dir === "R") for (let x = b.x + b.len; x < GW; x++) p.push([x, b.y]);
+  return p;
+}
+
+// ---------- level generation ----------
+// Buses are returned in a valid exit order. Passengers follow that order,
+// shuffled inside chunks of 3 buses, so a careful player always needs at most 3 spots.
+function generateLevel(seed, nBuses = 16, nColors = 5) {
+  // try several layouts from this seed and keep the fullest one
+  let best = null;
+  for (let k = 0; k < 40; k++) {
+    const lvl = buildLevel(((seed * 2654435761) ^ (k * 40503)) >>> 0, nBuses, nColors);
+    if (!best || lvl.buses.length > best.buses.length) best = lvl;
+    if (best.buses.length >= 13) break;
+  }
+  return best;
+}
+function buildLevel(seed, nBuses, nColors) {
+  const rng = mulberry32(seed);
+  const grid = Array.from({ length: GH }, () => Array(GW).fill(-1));
+  const placed = [];
+  for (let attempt = 0; attempt < 600 && placed.length < nBuses; attempt++) {
+    const len = rng() < 0.62 ? 2 : 3;
+    const dir = "UDLR"[Math.floor(rng() * 4)];
+    const maxX = isVert(dir) ? GW - 1 : GW - len;
+    const maxY = isVert(dir) ? GH - len : GH - 1;
+    const b = { x: Math.floor(rng() * (maxX + 1)), y: Math.floor(rng() * (maxY + 1)), len, dir };
+    const cells = cellsOf(b);
+    if (cells.every(([cx, cy]) => grid[cy][cx] === -1)) {
+      cells.forEach(([cx, cy]) => (grid[cy][cx] = placed.length));
+      placed.push(b);
+    }
+  }
+  // greedy exit order; drop buses that can never leave
+  const g = grid.map((r) => r.slice());
+  let remaining = placed.map((b, i) => ({ ...b, gi: i }));
+  const order = [];
+  for (;;) {
+    const free = remaining.filter((b) => pathOf(b).every(([cx, cy]) => g[cy][cx] === -1));
+    if (!free.length) break;
+    const pick = free[Math.floor(rng() * free.length)];
+    order.push(pick);
+    cellsOf(pick).forEach(([cx, cy]) => (g[cy][cx] = -1));
+    remaining = remaining.filter((b) => b !== pick);
+  }
+  // colours: every colour used at least once
+  const colors = order.map((_, i) => (i < nColors ? i : Math.floor(rng() * nColors)));
+  for (let i = colors.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [colors[i], colors[j]] = [colors[j], colors[i]];
+  }
+  const buses = order.map((b, i) => ({ id: i, x: b.x, y: b.y, len: b.len, dir: b.dir, color: colors[i], cap: b.len + 1 }));
+  const queue = [];
+  for (let i = 0; i < buses.length; i += 3) {
+    const chunk = [];
+    buses.slice(i, i + 3).forEach((b) => { for (let k = 0; k < b.cap; k++) chunk.push(b.color); });
+    for (let k = chunk.length - 1; k > 0; k--) {
+      const j = Math.floor(rng() * (k + 1));
+      [chunk[k], chunk[j]] = [chunk[j], chunk[k]];
+    }
+    queue.push(...chunk);
+  }
+  return { buses, queue };
+}
+
+// ---------- board ----------
+class Board {
+  constructor(level, name) {
+    this.name = name;
+    this.buses = level.buses.map((b) => ({ ...b, state: "lot", t0: 0, slot: -1, shakeT: -1e9 }));
+    this.queue = level.queue.slice();
+    this.totalBuses = this.buses.length;
+    this.slots = Array(SLOTS).fill(null);
+    this.goats = [];
+    this.locked = Array(SLOTS).fill(-1e9);
+    this.frozenUntil = -1e9;
+    this.meter = 0;
+    this.lastBoard = -1e9;
+    this.departed = 0;
+    this.result = null;
+    this.flash = null;
+    this.onDepart = null;
+    this.hops = [];
+    this.boarded = 0;
+  }
+  lotBuses() { return this.buses.filter((b) => b.state === "lot"); }
+  busAt(x, y) {
+    for (const b of this.buses) {
+      if (b.state !== "lot") continue;
+      for (const [cx, cy] of cellsOf(b)) if (cx === x && cy === y) return b;
+    }
+    return null;
+  }
+  goatAt(x, y, now) { return this.goats.some((g) => g.x === x && g.y === y && g.until > now); }
+  blocked(x, y, now) { return !!this.busAt(x, y) || this.goatAt(x, y, now); }
+  canExit(b, now) { return pathOf(b).every(([x, y]) => !this.blocked(x, y, now)); }
+  slotLocked(i, now) { return this.locked[i] > now; }
+  freeSlot(now) {
+    for (let i = 0; i < SLOTS; i++) if (!this.slots[i] && !this.slotLocked(i, now)) return i;
+    return -1;
+  }
+  usedSlots() { return this.slots.filter(Boolean).length; }
+  tryTap(b, now) {
+    if (this.result) return "over";
+    if (now < this.frozenUntil) return "frozen";
+    if (!this.canExit(b, now)) { b.shakeT = now; return "blocked"; }
+    const s = this.freeSlot(now);
+    if (s < 0) { b.shakeT = now; return "full"; }
+    b.state = "leaving"; b.t0 = now; b.slot = s;
+    this.slots[s] = { bus: b, filled: 0, state: "incoming", t0: now, ids: [] };
+    return "ok";
+  }
+  setFlash(text, now, color) { this.flash = { text, t0: now, color: color || "#f3f1ea" }; }
+  update(now) {
+    if (this.result) return;
+    this.goats = this.goats.filter((g) => g.until > now);
+    if (this.hops.length) this.hops = this.hops.filter((h) => now - h.t0 < 400);
+    for (const b of this.buses) {
+      if (b.state === "leaving" && now - b.t0 >= LEAVE_MS) {
+        b.state = "slot";
+        const s = this.slots[b.slot];
+        if (s) { s.state = "parked"; s.t0 = now; }
+      }
+    }
+    if (this.queue.length && now - this.lastBoard >= BOARD_MS) {
+      const c = this.queue[0];
+      const s = this.slots.find((s) => s && s.state === "parked" && s.bus.color === c && s.filled < s.bus.cap);
+      if (s) {
+        this.queue.shift();
+        s.filled++;
+        s.ids.push(this.boarded);
+        this.hops.push({ color: c, slot: this.slots.indexOf(s), t0: now, id: this.boarded });
+        this.boarded++;
+        this.lastBoard = now;
+        if (s.filled >= s.bus.cap) { s.state = "departing"; s.t0 = now; }
+      }
+    }
+    for (let i = 0; i < SLOTS; i++) {
+      const s = this.slots[i];
+      if (s && s.state === "departing" && now - s.t0 >= DEPART_MS) {
+        s.bus.state = "gone";
+        this.slots[i] = null;
+        this.departed++;
+        if (this.onDepart) this.onDepart(this, now);
+      }
+    }
+    const busesLeft = this.buses.some((b) => b.state !== "gone");
+    if (!this.queue.length && !busesLeft) { this.result = "win"; return; }
+    // jam: every spot holds a parked bus and none can take the next passenger
+    if (this.queue.length) {
+      const c = this.queue[0];
+      const allParked = this.slots.every((s) => s && s.state === "parked");
+      const canServe = this.slots.some((s) => s && s.bus.color === c && s.filled < s.bus.cap);
+      if (allParked && !canServe) this.result = "jam";
+    }
+  }
+}
+
+// ---------- attacks ----------
+function applyAttack(target, kind, now, fromName) {
+  if (kind === "chai") {
+    const empty = [];
+    for (let i = 0; i < SLOTS; i++) if (!target.slots[i] && !target.slotLocked(i, now)) empty.push(i);
+    if (!empty.length) kind = "freeze";
+    else {
+      const i = empty[Math.floor(Math.random() * empty.length)];
+      target.locked[i] = now + 7000;
+      target.setFlash(`${fromName} parked a chai stall in your spot!`, now, "#f5b700");
+      return kind;
+    }
+  }
+  if (kind === "goat") {
+    // prefer an empty cell that sits on some bus's exit road
+    const candidates = new Map();
+    for (const b of target.lotBuses()) {
+      for (const [x, y] of pathOf(b)) {
+        if (!target.blocked(x, y, now)) candidates.set(`${x},${y}`, [x, y]);
+      }
+    }
+    const list = [...candidates.values()];
+    if (!list.length) kind = "freeze";
+    else {
+      const [x, y] = list[Math.floor(Math.random() * list.length)];
+      target.goats.push({ x, y, until: now + 6500, t0: now });
+      target.setFlash(`${fromName} let a goat loose on your road!`, now, "#f2f0e6");
+      return kind;
+    }
+  }
+  target.frozenUntil = now + 2600;
+  target.setFlash(`${fromName} froze your hands!`, now, "#8fd3ff");
+  return "freeze";
+}
+
+// ---------- bot ----------
+class Bot {
+  constructor(cfg, seed) {
+    this.cfg = cfg;
+    this.next = -1e9;
+    this.waits = 0;
+    this.rng = mulberry32(seed ^ 0x9e3779b9);
+  }
+  score(board, b, now) {
+    const win = board.queue.slice(0, 12);
+    const need = win.filter((c) => c === b.color).length;
+    const have = board.slots.reduce((a, s) => a + (s && s.bus.color === b.color ? s.bus.cap - s.filled : 0), 0);
+    let sc = need - have;
+    const front = board.queue[0];
+    const frontHave = board.slots.some((s) => s && s.bus.color === front && s.filled < s.bus.cap);
+    if (b.color === front && !frontHave) sc += 10;
+    // bonus for unblocking a bus of the colour at the front of the queue
+    if (!frontHave) {
+      const mine = new Set(cellsOf(b).map(([x, y]) => `${x},${y}`));
+      for (const o of board.lotBuses()) {
+        if (o === b || o.color !== front) continue;
+        if (pathOf(o).some(([x, y]) => mine.has(`${x},${y}`))) { sc += 4; break; }
+      }
+    }
+    return sc;
+  }
+  tick(board, now) {
+    if (now < this.next || board.result) return;
+    this.next = now + this.cfg.think * (0.7 + this.rng() * 0.6);
+    if (now < board.frozenUntil) return;
+    if (board.freeSlot(now) < 0) return;
+    const cands = board.lotBuses().filter((b) => board.canExit(b, now));
+    if (!cands.length) return;
+    let pick;
+    if (this.rng() < this.cfg.mistake) {
+      pick = cands[Math.floor(this.rng() * cands.length)];
+    } else {
+      let best = -1e9;
+      for (const b of cands) {
+        const s = this.score(board, b, now) + this.rng() * 0.5;
+        if (s > best) { best = s; pick = b; }
+      }
+      if (best <= 0.5 && board.usedSlots() >= 3 && this.waits < 4) { this.waits++; return; }
+    }
+    this.waits = 0;
+    board.tryTap(pick, now);
+  }
+}
+
+// ---------- sound ----------
+let actx = null;
+function audio() {
+  if (!actx) {
+    try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; }
+  }
+  if (actx && actx.state === "suspended") actx.resume().catch(() => {});
+  return actx;
+}
+function tone(freq, dur, type, vol, when = 0, slide) {
+  const a = actx; if (!a) return;
+  const t = a.currentTime + when;
+  const o = a.createOscillator(), g = a.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + dur);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + 0.015);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(a.destination);
+  o.start(t); o.stop(t + dur + 0.02);
+}
+const sfx = {
+  horn() { tone(392, 0.13, "square", 0.05); tone(311, 0.2, "square", 0.05, 0.15); },
+  bonk() { tone(140, 0.12, "sine", 0.12, 0, 90); },
+  tap() { tone(660, 0.05, "triangle", 0.05); },
+  goat() { tone(520, 0.5, "sawtooth", 0.04, 0, 430); tone(560, 0.35, "sawtooth", 0.02, 0.05, 470); },
+  zap() { tone(900, 0.18, "square", 0.03, 0, 1800); },
+  win() { [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.18, "triangle", 0.07, i * 0.11)); },
+  lose() { [392, 330, 262].forEach((f, i) => tone(f, 0.25, "triangle", 0.07, i * 0.16)); },
+};
+
+function buzz(pattern) { try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) { /* no haptics */ } }
+
+// ---------- game state ----------
+const canvas = document.getElementById("game");
+let ctx = canvas.getContext("2d");
+let W = 0, H = 0, L = {};
+let game = null;
+let lastOpts = { mode: "bot", diff: "normal", oppName: "Bilal", tag: "NORMAL" };
+const ATTACK_CODE = { goat: "g", freeze: "f", chai: "c" };
+const CODE_ATTACK = { g: "goat", f: "freeze", c: "chai" };
+function nameHash(s) { let h = 7; for (const ch of String(s)) h = (Math.imul(h, 31) + ch.charCodeAt(0)) | 0; return Math.abs(h); }
+
+// opts: { mode: "bot" | "online", diff, oppName, tag, round }
+function newGame(seed, opts) {
+  lastOpts = opts;
+  const online = opts.mode === "online";
+  const p = new Board(generateLevel(seed), "You");
+  const b = new Board(generateLevel(seed), opts.oppName);
+  const now = performance.now();
+  game = {
+    seed, mode: opts.mode, diff: opts.diff, tag: opts.tag, round: opts.round || 0,
+    oppName: opts.oppName,
+    oppLook: opts.oppName === "Bilal" && !online ? BILAL : look(nameHash(opts.oppName)),
+    player: p, bot: b,
+    ai: online ? null : new Bot(DIFFS[opts.diff || "normal"], seed),
+    startAt: now + (online ? 3200 : 2600), over: false, overAt: 0,
+    atkSent: 0, atkKinds: "", atkSeen: 0,
+  };
+  const opp = opts.oppName;
+  const onDepart = (board, t) => {
+    if (board === p) sfx.horn();
+    board.meter++;
+    if (board.meter < 2) return;
+    board.meter = 0;
+    board.attackAt = t;
+    const kind = ATTACKS[Math.floor(Math.random() * ATTACKS.length)];
+    if (board === p) {
+      let applied = kind;
+      if (online) {
+        game.atkSent++;
+        game.atkKinds = (game.atkKinds + ATTACK_CODE[kind]).slice(-8);
+        publishState(t, true);
+      } else {
+        applied = applyAttack(b, kind, t, "You");
+      }
+      const msg = { goat: `Goat sent to ${opp}!`, freeze: `${opp} is frozen!`, chai: `Chai stall dropped on ${opp}!` }[applied];
+      p.setFlash(msg, t, "#ffb199");
+      b.hitAt = t;
+      sfx.zap();
+    } else {
+      const applied = applyAttack(p, kind, t, opp);
+      applied === "goat" ? sfx.goat() : sfx.zap();
+      buzz(80);
+    }
+  };
+  p.onDepart = onDepart;
+  if (!online) b.onDepart = onDepart;
+}
+
+function finish(result, text) {
+  if (game.over) return;
+  game.over = true;
+  game.overAt = performance.now();
+  if (game.mode === "online") publishState(game.overAt, true);
+  const g = game;
+  setTimeout(() => {
+    if (game !== g) return;
+    document.getElementById("endTitle").textContent = result === "win" ? "Shabash!" : "Haar gaye!";
+    document.getElementById("endEmoji").textContent = result === "win" ? "🏆" : g.player.result === "jam" ? "😵" : "🐐";
+    document.getElementById("endText").textContent = text;
+    const online = g.mode === "online";
+    document.getElementById("newBtn").hidden = online;
+    const rb = document.getElementById("rematchBtn");
+    rb.disabled = false;
+    rb.innerHTML = online ? `Rematch<small>Ask ${escapeHtml(g.oppName)}</small>` : "Rematch<small>Same lot</small>";
+    document.getElementById("menuBtn").textContent = online ? "Leave room" : "Main menu";
+    showScreen("endScreen");
+  }, 900);
+  result === "win" ? sfx.win() : sfx.lose();
+  buzz(result === "win" ? [30, 50, 30] : 120);
+}
+
+function checkEnd() {
+  const { player: p, bot: b, oppName: o } = game;
+  const left = (bd) => bd.buses.filter((x) => x.state !== "gone").length;
+  if (p.result === "win") return finish("win", `You cleared the adda first. ${o} still had ${left(b)} buses left.`);
+  if (b.result === "win") return finish("lose", `${o} cleared the adda first. You had ${left(p)} buses left.`);
+  if (p.result === "jam") return finish("lose", "Your adda jammed. All 5 bays were full and nobody could board.");
+  if (b.result === "jam") return finish("win", `${o} jammed their own adda. Every bay full, nobody could board.`);
+}
+
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+
+// ---------- online state sync ----------
+// Each player publishes their own board as absolute state in room presence; the opponent
+// rebuilds a read-only view of it from the shared seed. Attacks travel as a running count.
+function encodeState(board) {
+  let lot = 0;
+  for (const b of board.buses) if (b.state === "lot") lot |= 1 << b.id;
+  const now = performance.now();
+  return {
+    r: game.round,
+    d: board.departed,
+    q: board.queue.length,
+    lot,
+    sl: board.slots.map((s, i) => (s ? [s.bus.id, s.filled] : board.slotLocked(i, now) ? -2 : -1)),
+    g: board.goats.map((g) => [g.x, g.y]),
+    fz: now < board.frozenUntil ? 1 : 0,
+    res: board.result || 0,
+    an: game.atkSent,
+    ak: game.atkKinds,
+  };
+}
+function applyRemote(view, st, now) {
+  view.departed = st.d | 0;
+  if (view.queue.length !== (st.q | 0)) view.queue = new Array(Math.max(0, st.q | 0)).fill(0);
+  for (const b of view.buses) b.state = (st.lot >> b.id) & 1 ? "lot" : "gone";
+  const sl = Array.isArray(st.sl) ? st.sl : [];
+  for (let i = 0; i < SLOTS; i++) {
+    const v = sl[i];
+    if (Array.isArray(v) && view.buses[v[0]]) {
+      const bus = view.buses[v[0]];
+      view.slots[i] = { bus, filled: v[1] | 0, state: "parked", ids: [] };
+      bus.state = "slot";
+    } else view.slots[i] = null;
+    view.locked[i] = v === -2 ? now + 1000 : -1e9;
+  }
+  view.goats = (Array.isArray(st.g) ? st.g : []).map(([x, y]) => ({ x, y, until: now + 1000, t0: now }));
+  view.frozenUntil = st.fz ? now + 500 : -1e9;
+  view.result = st.res === "win" || st.res === "jam" ? st.res : null;
+}
+function receiveAttacks(st, now) {
+  const an = st.an | 0, ak = String(st.ak || "");
+  if (an <= game.atkSeen) return;
+  const first = an - ak.length + 1;
+  for (let i = Math.max(game.atkSeen + 1, first); i <= an; i++) {
+    const kind = CODE_ATTACK[ak[i - first]] || "freeze";
+    if (game.over) continue;
+    const applied = applyAttack(game.player, kind, now, game.oppName);
+    applied === "goat" ? sfx.goat() : sfx.zap();
+    buzz(80);
+  }
+  game.atkSeen = an;
+}
+
+// ---------- layout ----------
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const KERB = 6;
+const HOP_MS = 300;
+const INK = "#1d2340", MUTED = "#5f6786", PAPER = "#fffdf7", PINK = "#ff3d7f";
+const EMOJI = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif';
+let BG = null;
+function safeAreas() {
+  const cs = getComputedStyle(document.getElementById("sa"));
+  return { t: parseFloat(cs.paddingTop) || 0, b: parseFloat(cs.paddingBottom) || 0 };
+}
+function sizesFor(cell) {
+  const lotW = cell * GW, bayGap = 6;
+  const slotW = (lotW - bayGap * (SLOTS - 1)) / SLOTS;
+  const slotH = Math.round(slotW * 0.68);
+  const qH = Math.round(clamp(cell * 0.9, 44, 62));
+  return { lotW, lotH: cell * GH, bayGap, slotW, slotH, qH, roadH: slotH + 14 };
+}
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  W = canvas.clientWidth; H = canvas.clientHeight;
+  canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const sa = safeAreas();
+  const colW = Math.min(W, 500), colX = (W - colW) / 2, pad = 12;
+  const top = sa.t + 10, bottom = H - sa.b - 10;
+  const oppH = Math.round(clamp(H * 0.125, 84, 108));
+  const barH = 58, gap = 10;
+  const needFor = (S) => oppH + gap + S.qH + S.roadH + KERB + S.lotH + KERB + gap + barH;
+  let cell = Math.floor((colW - pad * 2 - KERB * 2) / GW), S = sizesFor(cell);
+  while (needFor(S) > bottom - top && cell > 24) S = sizesFor(--cell);
+  let extra = Math.max(0, bottom - top - needFor(S));
+  const lotX = Math.round(colX + (colW - S.lotW) / 2);
+  const raceH = 40, hasRace = extra >= raceH + gap + 12;
+  if (hasRace) extra -= raceH + gap;
+  const raceY = Math.round(top + oppH + gap + extra * 0.22);
+  const qY = hasRace ? Math.round(raceY + raceH + gap + extra * 0.22) : Math.round(top + oppH + gap + extra * 0.45);
+  const roadY = qY + S.qH;
+  const lotY = roadY + S.roadH + KERB;
+  L = {
+    ...S, colW, colX, pad, cell, lotX, lotY, qY, roadY,
+    oppY: top, oppH, barH, hasRace, raceY, raceH,
+    sceneX: lotX - KERB, sceneW: S.lotW + KERB * 2,
+    slotY: roadY + 7,
+    barY: Math.round(lotY + S.lotH + KERB + gap + extra * (hasRace ? 0.3 : 0.35)),
+  };
+  BG = buildBackground(dpr);
+}
+window.addEventListener("resize", resize);
+
+function buildBackground(dpr) {
+  const c = document.createElement("canvas");
+  c.width = Math.round(W * dpr); c.height = Math.round(H * dpr);
+  const g = c.getContext("2d");
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const grd = g.createLinearGradient(0, 0, 0, H);
+  grd.addColorStop(0, "#94d66b"); grd.addColorStop(1, "#5aab48");
+  g.fillStyle = grd; g.fillRect(0, 0, W, H);
+  const rng = mulberry32(1234);
+  for (let i = 0; i < (W * H) / 700; i++) {
+    const x = rng() * W, y = rng() * H, r = 8 + rng() * 26;
+    g.fillStyle = rng() < 0.5 ? "rgba(255,255,255,0.05)" : "rgba(30,80,20,0.06)";
+    g.beginPath(); g.ellipse(x, y, r, r * 0.6, 0, 0, 7); g.fill();
+  }
+  g.strokeStyle = "rgba(40,100,30,0.25)"; g.lineWidth = 1.4; g.lineCap = "round";
+  for (let i = 0; i < (W * H) / 1600; i++) {
+    const x = rng() * W, y = rng() * H;
+    g.beginPath();
+    g.moveTo(x - 3, y); g.lineTo(x - 5, y - 5);
+    g.moveTo(x, y); g.lineTo(x, y - 7);
+    g.moveTo(x + 3, y); g.lineTo(x + 5, y - 5);
+    g.stroke();
+  }
+  return c;
+}
+
+// ---------- drawing helpers ----------
+function rr(x, y, w, h, r) {
+  r = Math.max(0, Math.min(r, w / 2, h / 2));
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function circle(x, y, r) { ctx.beginPath(); ctx.arc(x, y, Math.max(0, r), 0, Math.PI * 2); }
+function ellipse(x, y, rx, ry) { ctx.beginPath(); ctx.ellipse(x, y, Math.max(0, rx), Math.max(0, ry), 0, 0, Math.PI * 2); }
+function shade(hex, amt) {
+  const n = parseInt(hex.slice(1), 16);
+  let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  const f = (c) => Math.max(0, Math.min(255, Math.round(amt < 0 ? c * (1 + amt) : c + (255 - c) * amt)));
+  return `rgb(${f(r)},${f(g)},${f(b)})`;
+}
+const ease = (t) => 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3);
+const easeBack = (t) => { t = Math.min(1, Math.max(0, t)); const c = 1.7; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
+let FONT_CACHE = null;
+function F(px, w = 700) {
+  if (!FONT_CACHE) FONT_CACHE = getComputedStyle(document.documentElement).getPropertyValue("--display").trim();
+  return `${w} ${px}px ${FONT_CACHE}`;
+}
+function card(x, y, w, h, r) {
+  ctx.fillStyle = "rgba(20,50,20,0.22)"; rr(x, y + 4, w, h, r); ctx.fill();
+  ctx.fillStyle = PAPER; rr(x, y, w, h, r); ctx.fill();
+}
+function outlinedText(text, x, y, fill, strokeW) {
+  ctx.lineJoin = "round"; ctx.lineWidth = strokeW; ctx.strokeStyle = INK;
+  ctx.strokeText(text, x, y);
+  ctx.fillStyle = fill; ctx.fillText(text, x, y);
+}
+const trimFor = (color) => (color === COLORS[3] ? "#e0336e" : "#ffe14d");
+
+// ---------- passengers ----------
+const SKINS = ["#f3cba5", "#e0a97e", "#c18458", "#94603f"];
+const HAIRS = ["#1f1a1a", "#3b2516", "#151515"];
+const SCARVES = ["#ff7eb6", "#ffd23f", "#7ee0c9", "#b69cff", "#ff9e5e"];
+function look(id) {
+  const h = Math.imul(id + 7, 2654435761) >>> 0;
+  return { skin: SKINS[h % 4], kind: (h >>> 4) % 6, hair: HAIRS[(h >>> 9) % 3], scarf: SCARVES[(h >>> 13) % 5] };
+}
+// kinds: 0 short hair, 1 white topi, 2 dupatta, 3 cricket cap, 4 moustache uncle, 5 long hair
+function drawHead(x, y, r, lk, color, face) {
+  const k = lk.kind;
+  if (k === 5) { ctx.fillStyle = lk.hair; rr(x - r * 1.08, y - r * 0.7, r * 2.16, r * 2.0, r * 0.9); ctx.fill(); }
+  if (k === 2) { ctx.fillStyle = lk.scarf; rr(x - r * 1.22, y - r * 1.25, r * 2.44, r * 2.75, r * 1.1); ctx.fill(); }
+  ctx.fillStyle = lk.skin; circle(x, y, r); ctx.fill();
+  if (k === 0 || k === 1 || k === 3) {
+    ctx.fillStyle = lk.hair; ctx.beginPath(); ctx.ellipse(x, y - r * 0.28, r * 1.02, r * 0.78, 0, Math.PI, 0); ctx.fill();
+  }
+  if (k === 1) { ctx.fillStyle = "#f7f5ee"; rr(x - r * 0.86, y - r * 1.18, r * 1.72, r * 0.72, r * 0.3); ctx.fill(); }
+  if (k === 3) {
+    ctx.fillStyle = shade(color, -0.3); ctx.beginPath(); ctx.ellipse(x, y - r * 0.42, r * 1.0, r * 0.7, 0, Math.PI, 0); ctx.fill();
+    rr(x - r * 0.1, y - r * 0.56, r * 1.35, r * 0.26, r * 0.13); ctx.fill();
+  }
+  if (k === 4) { ctx.fillStyle = "#9aa0a8"; ctx.beginPath(); ctx.ellipse(x, y - r * 0.4, r * 0.9, r * 0.55, 0, Math.PI, 0); ctx.fill(); }
+  if (k === 5) { ctx.fillStyle = lk.hair; ctx.beginPath(); ctx.ellipse(x, y - r * 0.3, r * 1.04, r * 0.76, 0, Math.PI, 0); ctx.fill(); }
+  if (!face) return;
+  ctx.fillStyle = INK;
+  circle(x - r * 0.36, y + r * 0.08, r * 0.13); ctx.fill();
+  circle(x + r * 0.36, y + r * 0.08, r * 0.13); ctx.fill();
+  if (k === 4) { rr(x - r * 0.42, y + r * 0.3, r * 0.84, r * 0.2, r * 0.1); ctx.fill(); }
+  else {
+    ctx.strokeStyle = INK; ctx.lineWidth = Math.max(1, r * 0.12); ctx.lineCap = "round";
+    ctx.beginPath(); ctx.arc(x, y + r * 0.28, r * 0.3, Math.PI * 0.18, Math.PI * 0.82); ctx.stroke();
+  }
+  ctx.fillStyle = "rgba(255,110,120,0.28)";
+  circle(x - r * 0.62, y + r * 0.36, r * 0.17); ctx.fill();
+  circle(x + r * 0.62, y + r * 0.36, r * 0.17); ctx.fill();
+}
+// full body, front view; (x, fy) is the point between the feet; s is total height
+function drawPassenger(x, fy, s, color, id, bob) {
+  const lk = look(id);
+  ctx.fillStyle = "rgba(60,40,10,0.18)"; ellipse(x, fy, s * 0.22, s * 0.055); ctx.fill();
+  const y = fy - bob;
+  ctx.fillStyle = "#3a4160";
+  rr(x - s * 0.15, y - s * 0.24, s * 0.12, s * 0.24, s * 0.05); ctx.fill();
+  rr(x + s * 0.03, y - s * 0.24, s * 0.12, s * 0.24, s * 0.05); ctx.fill();
+  const bw = s * 0.5, bh = s * 0.42, by = y - s * 0.2 - bh;
+  ctx.fillStyle = shade(color, -0.18);
+  rr(x - bw / 2 - s * 0.06, by + s * 0.04, s * 0.13, bh * 0.75, s * 0.06); ctx.fill();
+  rr(x + bw / 2 - s * 0.07, by + s * 0.04, s * 0.13, bh * 0.75, s * 0.06); ctx.fill();
+  ctx.fillStyle = color; rr(x - bw / 2, by, bw, bh, s * 0.16); ctx.fill();
+  ctx.fillStyle = shade(color, 0.4);
+  ctx.beginPath(); ctx.moveTo(x - s * 0.08, by + 0.5); ctx.lineTo(x + s * 0.08, by + 0.5); ctx.lineTo(x, by + s * 0.12); ctx.closePath(); ctx.fill();
+  const hr = s * 0.19;
+  drawHead(x, by - hr * 0.72, hr, lk, color, s >= 18);
+}
+
+// ---------- buses ----------
+const LUGGAGE = ["#8b5a2b", "#c99a5b", "#e94e77", "#3d7bd9", "#f0c419", "#6c4ab6", "#2aa876"];
+function luggageOf(id) {
+  const rng = mulberry32(id * 977 + 5);
+  const n = 2 + Math.floor(rng() * 2);
+  return Array.from({ length: n }, () => ({ w: 0.7 + rng() * 0.6, h: 0.55 + rng() * 0.4, c: LUGGAGE[Math.floor(rng() * LUGGAGE.length)], round: rng() < 0.35 }));
+}
+
+// Top-down bus in a rect, facing dir: windscreen + headlights at the front, luggage rack, truck-art zigzags.
+function drawTopBus(x, y, w, h, dir, color, id) {
+  const vert = isVert(dir);
+  const len = vert ? h : w, wid = vert ? w : h;
+  ctx.fillStyle = "rgba(15,20,30,0.32)";
+  rr(x + wid * 0.04, y + wid * 0.1, w, h, wid * 0.3); ctx.fill();
+  ctx.save();
+  ctx.translate(x + w / 2, y + h / 2);
+  ctx.rotate({ R: 0, D: Math.PI / 2, L: Math.PI, U: -Math.PI / 2 }[dir]);
+  const L2 = len / 2, W2 = wid / 2;
+  // mirrors
+  ctx.fillStyle = "#1e2533";
+  rr(L2 - wid * 0.36, -W2 - wid * 0.08, wid * 0.1, wid * 0.14, 2); ctx.fill();
+  rr(L2 - wid * 0.36, W2 - wid * 0.06, wid * 0.1, wid * 0.14, 2); ctx.fill();
+  // skirt + roof
+  ctx.fillStyle = shade(color, -0.3); rr(-L2, -W2, len, wid, wid * 0.26); ctx.fill();
+  const g = ctx.createLinearGradient(0, -W2, 0, W2);
+  g.addColorStop(0, shade(color, 0.32)); g.addColorStop(0.55, color); g.addColorStop(1, shade(color, -0.06));
+  ctx.fillStyle = g;
+  const ins = wid * 0.07;
+  rr(-L2 + ins, -W2 + ins, len - ins * 2, wid - ins * 2, wid * 0.2); ctx.fill();
+  // windscreen + rear window
+  ctx.fillStyle = "#22304a";
+  rr(L2 - wid * 0.31, -W2 + wid * 0.15, wid * 0.21, wid * 0.7, wid * 0.08); ctx.fill();
+  rr(-L2 + wid * 0.1, -W2 + wid * 0.24, wid * 0.1, wid * 0.52, wid * 0.05); ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,0.4)";
+  rr(L2 - wid * 0.28, -W2 + wid * 0.2, wid * 0.05, wid * 0.32, 2); ctx.fill();
+  // headlights
+  ctx.fillStyle = "#fff4b8";
+  rr(L2 - wid * 0.075, -W2 + wid * 0.1, wid * 0.06, wid * 0.17, 2); ctx.fill();
+  rr(L2 - wid * 0.075, W2 - wid * 0.27, wid * 0.06, wid * 0.17, 2); ctx.fill();
+  // truck-art zigzags on both sides
+  ctx.strokeStyle = trimFor(color); ctx.lineWidth = Math.max(1.3, wid * 0.045); ctx.lineJoin = "round"; ctx.lineCap = "round";
+  const zx0 = -L2 + wid * 0.24, zx1 = L2 - wid * 0.38;
+  const zn = Math.max(4, Math.round((zx1 - zx0) / (wid * 0.11)));
+  for (const sy of [-1, 1]) {
+    const yy = sy * (W2 - wid * 0.14);
+    ctx.beginPath();
+    for (let i = 0; i <= zn; i++) {
+      const xx = zx0 + ((zx1 - zx0) * i) / zn, yv = yy + (i % 2 ? 1 : -1) * wid * 0.035;
+      i ? ctx.lineTo(xx, yv) : ctx.moveTo(xx, yv);
+    }
+    ctx.stroke();
+  }
+  // roof rack with luggage
+  const rx0 = -L2 + wid * 0.27, rackEnd = rx0 + (L2 - wid * 0.34 - rx0) * 0.58;
+  const ry0 = -W2 + wid * 0.27, rh = wid * 0.46, rw = rackEnd - rx0;
+  ctx.strokeStyle = "rgba(20,25,35,0.45)"; ctx.lineWidth = Math.max(1, wid * 0.03);
+  rr(rx0, ry0, rw, rh, 3); ctx.stroke();
+  const bags = luggageOf(id);
+  let bx = rx0 + 2;
+  const unit = (rw - 4) / bags.reduce((a, b) => a + b.w, 0);
+  for (const b of bags) {
+    const bw = b.w * unit - 2, bh = rh * b.h;
+    ctx.fillStyle = b.c;
+    if (b.round) { ellipse(bx + bw / 2, 0, bw / 2, bh / 2); ctx.fill(); }
+    else { rr(bx, -bh / 2, bw, bh, 2); ctx.fill(); ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.fillRect(bx + bw * 0.45, -bh / 2, bw * 0.1, bh); }
+    bx += bw + 2;
+  }
+  // chevron
+  const ax = (rackEnd + (L2 - wid * 0.31)) / 2, as = wid * 0.15;
+  ctx.strokeStyle = "rgba(255,255,255,0.92)"; ctx.lineWidth = Math.max(2, wid * 0.085);
+  ctx.beginPath(); ctx.moveTo(ax - as * 0.55, -as); ctx.lineTo(ax + as * 0.45, 0); ctx.lineTo(ax - as * 0.55, as); ctx.stroke();
+  ctx.restore();
+}
+
+// Side-view bus for the bays; seats = passenger ids sitting in the windows (null = empty seat)
+function drawSideBus(x, y, w, h, color, cap, seats, id) {
+  const rackH = h * 0.17, bodyY = y + rackH, bodyH = h * 0.64;
+  const wr = h * 0.13, wy = bodyY + bodyH;
+  ctx.fillStyle = "rgba(0,0,0,0.25)"; ellipse(x + w / 2, wy + wr * 0.8, w * 0.5, h * 0.07); ctx.fill();
+  // roof luggage
+  const bags = luggageOf(id);
+  let bx = x + w * 0.1;
+  const unit = (w * 0.62) / bags.reduce((a, b) => a + b.w, 0);
+  for (const b of bags) {
+    const bw = b.w * unit - 2, bh = rackH * (0.6 + b.h * 0.5);
+    ctx.fillStyle = b.c;
+    if (b.round) { ellipse(bx + bw / 2, bodyY - bh * 0.4, bw / 2, bh * 0.6); ctx.fill(); }
+    else { rr(bx, bodyY - bh, bw, bh + 2, 2); ctx.fill(); }
+    bx += bw + 2;
+  }
+  ctx.fillStyle = "#2a3142"; rr(x + w * 0.07, bodyY - 2.5, w * 0.68, 3, 1.5); ctx.fill();
+  // body
+  const g = ctx.createLinearGradient(0, bodyY, 0, bodyY + bodyH);
+  g.addColorStop(0, shade(color, 0.32)); g.addColorStop(0.5, color); g.addColorStop(1, shade(color, -0.25));
+  ctx.fillStyle = g; rr(x, bodyY, w, bodyH, Math.min(11, h * 0.18)); ctx.fill();
+  // windscreen
+  ctx.fillStyle = "#22304a"; rr(x + w * 0.865, bodyY + bodyH * 0.1, w * 0.105, bodyH * 0.5, 3); ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,0.35)"; rr(x + w * 0.885, bodyY + bodyH * 0.14, w * 0.03, bodyH * 0.24, 1.5); ctx.fill();
+  // windows with passengers
+  const wx0 = x + w * 0.05, wx1 = x + w * 0.84, ww = (wx1 - wx0) / cap;
+  const winY = bodyY + bodyH * 0.1, winH = bodyH * 0.5;
+  for (let k = 0; k < cap; k++) {
+    const wx = wx0 + k * ww + 1.2, wW = ww - 2.4;
+    ctx.fillStyle = "#cfeaff"; rr(wx, winY, wW, winH, 3); ctx.fill();
+    const pid = seats ? seats[k] : null;
+    if (pid != null) {
+      ctx.save(); rr(wx, winY, wW, winH, 3); ctx.clip();
+      const hr = Math.min(wW * 0.32, winH * 0.3);
+      ctx.fillStyle = color; rr(wx + wW / 2 - hr * 1.35, winY + winH - hr * 0.85, hr * 2.7, hr * 1.6, hr * 0.7); ctx.fill();
+      drawHead(wx + wW / 2, winY + winH - hr * 1.45, hr, look(pid), color, hr >= 4.5);
+      ctx.restore();
+    }
+    ctx.fillStyle = "rgba(255,255,255,0.5)"; rr(wx + 1.5, winY + 1.5, Math.max(1, wW * 0.22), winH * 0.3, 1.5); ctx.fill();
+  }
+  // truck-art band
+  const by = bodyY + bodyH * 0.69, bh = bodyH * 0.17;
+  ctx.fillStyle = trimFor(color); rr(x + 3, by, w - 6, bh, 2); ctx.fill();
+  ctx.strokeStyle = shade(color, -0.25); ctx.lineWidth = Math.max(1, bh * 0.28); ctx.lineJoin = "round";
+  ctx.beginPath();
+  const zn = Math.max(6, Math.round(w / 6));
+  for (let i = 0; i <= zn; i++) {
+    const xx = x + 4 + ((w - 8) * i) / zn, yv = by + (i % 2 ? bh * 0.78 : bh * 0.22);
+    i ? ctx.lineTo(xx, yv) : ctx.moveTo(xx, yv);
+  }
+  ctx.stroke();
+  // headlight + wheels
+  ctx.fillStyle = "#fff4b8"; circle(x + w - 3, bodyY + bodyH * 0.72, Math.max(1.5, h * 0.05)); ctx.fill();
+  for (const fx of [0.23, 0.76]) {
+    ctx.fillStyle = "#1e2230"; circle(x + w * fx, wy, wr); ctx.fill();
+    ctx.fillStyle = "#a6aec0"; circle(x + w * fx, wy, wr * 0.42); ctx.fill();
+  }
+}
+
+function busRect(b, lx, ly, cell) {
+  const x = lx + b.x * cell, y = ly + b.y * cell;
+  return isVert(b.dir) ? [x, y, cell, b.len * cell] : [x, y, b.len * cell, cell];
+}
+
+// ---------- lot ----------
+function drawLot(board, now) {
+  const { lotX: lx, lotY: ly, lotW: lw, lotH: lh, cell } = L;
+  // black / yellow kerb
+  ctx.lineWidth = KERB; ctx.strokeStyle = "#1d2230";
+  rr(lx - KERB / 2, ly - KERB / 2, lw + KERB, lh + KERB, 12); ctx.stroke();
+  ctx.strokeStyle = "#ffc21a"; ctx.setLineDash([11, 11]); ctx.stroke(); ctx.setLineDash([]);
+  const g = ctx.createLinearGradient(lx, ly, lx + lw, ly + lh);
+  g.addColorStop(0, "#5f6572"); g.addColorStop(1, "#4b505c");
+  ctx.fillStyle = g; rr(lx, ly, lw, lh, 9); ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.12)"; ctx.lineWidth = 1.5;
+  for (let i = 1; i < GW; i++) { ctx.beginPath(); ctx.moveTo(lx + i * cell, ly + 6); ctx.lineTo(lx + i * cell, ly + lh - 6); ctx.stroke(); }
+  for (let j = 1; j < GH; j++) { ctx.beginPath(); ctx.moveTo(lx + 6, ly + j * cell); ctx.lineTo(lx + lw - 6, ly + j * cell); ctx.stroke(); }
+
+  ctx.save();
+  rr(lx, ly, lw, lh, 9); ctx.clip();
+  const inset = Math.max(3, cell * 0.07);
+  for (const b of board.buses) {
+    if (b.state !== "lot" && b.state !== "leaving") continue;
+    let [x, y, w, h] = busRect(b, lx, ly, cell);
+    if (b.state === "leaving") {
+      const p = ease((now - b.t0) / LEAVE_MS);
+      const dist = (Math.max(GW, GH) + b.len) * cell;
+      const v = { U: [0, -1], D: [0, 1], L: [-1, 0], R: [1, 0] }[b.dir];
+      x += v[0] * dist * p; y += v[1] * dist * p;
+    }
+    const st = now - b.shakeT;
+    if (st < 320) x += Math.sin(st / 22) * (1 - st / 320) * cell * 0.12;
+    drawTopBus(x + inset, y + inset, w - inset * 2, h - inset * 2, b.dir, COLORS[b.color], b.id);
+  }
+  ctx.restore();
+
+  for (const gt of board.goats) {
+    const gx = lx + gt.x * cell + cell / 2, gy = ly + gt.y * cell + cell / 2;
+    const life = clamp((gt.until - now) / 6500, 0, 1);
+    ctx.fillStyle = "rgba(255,255,255,0.18)"; circle(gx, gy, cell * 0.42); ctx.fill();
+    ctx.strokeStyle = "#fff"; ctx.lineWidth = 3; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.arc(gx, gy, cell * 0.42, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * life); ctx.stroke();
+    const bob = Math.abs(Math.sin(now / 140)) * cell * 0.05;
+    ctx.font = `${Math.round(cell * 0.6)}px ${EMOJI}`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("🐐", gx, gy - bob);
+    if (Math.floor(now / 900) % 3 === 0) {
+      ctx.font = F(Math.round(cell * 0.26), 800);
+      const tw = ctx.measureText("Meh!").width;
+      ctx.fillStyle = "#fff"; rr(gx + cell * 0.12, gy - cell * 0.72, tw + 10, cell * 0.32, cell * 0.16); ctx.fill();
+      ctx.fillStyle = INK; ctx.fillText("Meh!", gx + cell * 0.12 + (tw + 10) / 2, gy - cell * 0.55);
+    }
+  }
+
+  if (now < board.frozenUntil) {
+    ctx.fillStyle = "rgba(175,228,255,0.38)"; rr(lx, ly, lw, lh, 9); ctx.fill();
+    ctx.strokeStyle = "rgba(235,250,255,0.95)"; ctx.lineWidth = 4; rr(lx + 2, ly + 2, lw - 4, lh - 4, 8); ctx.stroke();
+    ctx.font = F(Math.round(cell * 0.62), 800); ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    outlinedText("FROZEN " + ((board.frozenUntil - now) / 1000).toFixed(1), lx + lw / 2, ly + lh / 2, "#e6f7ff", 6);
+  }
+}
+
+// ---------- stop: pavement queue + bus bays ----------
+function drawStop(board, now) {
+  const { sceneX, sceneW, qY, qH, roadY, roadH, lotX, lotY, lotH } = L;
+  const sceneH = lotY + lotH + KERB - qY;
+  ctx.fillStyle = "rgba(20,50,20,0.25)"; rr(sceneX + 2, qY + 7, sceneW, sceneH, 20); ctx.fill();
+  ctx.save();
+  rr(sceneX, qY, sceneW, sceneH, 18); ctx.clip();
+  ctx.fillStyle = "#454a56"; ctx.fillRect(sceneX, qY, sceneW, sceneH);
+  ctx.fillStyle = "#efdcb4"; ctx.fillRect(sceneX, qY, sceneW, qH);
+  ctx.strokeStyle = "rgba(120,90,40,0.13)"; ctx.lineWidth = 1;
+  for (let x = sceneX + 18; x < sceneX + sceneW; x += 18) { ctx.beginPath(); ctx.moveTo(x, qY); ctx.lineTo(x, qY + qH - 4); ctx.stroke(); }
+  for (let y = qY + 18; y < qY + qH - 4; y += 18) { ctx.beginPath(); ctx.moveTo(sceneX, y); ctx.lineTo(sceneX + sceneW, y); ctx.stroke(); }
+  ctx.fillStyle = "#cdb68a"; ctx.fillRect(sceneX, roadY - 4, sceneW, 4);
+  ctx.restore();
+  // bays
+  for (let i = 0; i < SLOTS; i++) {
+    const bx = lotX + i * (L.slotW + L.bayGap);
+    ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = 2; ctx.setLineDash([6, 5]);
+    rr(bx, L.slotY - 2, L.slotW, L.slotH + 4, 8); ctx.stroke(); ctx.setLineDash([]);
+    if (!board.slots[i] && !board.slotLocked(i, now)) {
+      ctx.fillStyle = "rgba(255,255,255,0.22)"; ctx.font = F(Math.round(L.slotH * 0.42), 800);
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(String(i + 1), bx + L.slotW / 2, L.slotY + L.slotH / 2 + 2);
+    }
+  }
+  drawBays(board, now);
+  drawQueue(board, now);
+  drawHops(board, now);
+}
+
+function drawChai(x, y, w, h, until, now) {
+  ctx.fillStyle = "#6b4a2b"; ctx.fillRect(x + w * 0.2, y + h * 0.18, 2, h * 0.5); ctx.fillRect(x + w * 0.8 - 2, y + h * 0.18, 2, h * 0.5);
+  ctx.fillStyle = "#b5733d"; rr(x + w * 0.1, y + h * 0.52, w * 0.8, h * 0.36, 4); ctx.fill();
+  const ax = x + w * 0.04, ay = y + h * 0.06, aw = w * 0.92, ah = h * 0.24;
+  ctx.save(); rr(ax, ay, aw, ah, 4); ctx.clip();
+  for (let i = 0; i < 6; i++) { ctx.fillStyle = i % 2 ? "#fff" : "#e8413c"; ctx.fillRect(ax + (i * aw) / 6, ay, aw / 6 + 1, ah); }
+  ctx.restore();
+  ctx.font = `${Math.round(h * 0.3)}px ${EMOJI}`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText("☕", x + w * 0.36, y + h * 0.66);
+  ctx.font = F(Math.round(h * 0.26), 800); ctx.fillStyle = "#fff";
+  ctx.fillText(Math.ceil((until - now) / 1000) + "s", x + w * 0.68, y + h * 0.7);
+}
+
+function drawBays(board, now) {
+  const inflight = new Set(board.hops.filter((hp) => now - hp.t0 < HOP_MS).map((hp) => hp.id));
+  for (let i = 0; i < SLOTS; i++) {
+    const sx = L.lotX + i * (L.slotW + L.bayGap), y = L.slotY, w = L.slotW, h = L.slotH;
+    if (board.slotLocked(i, now)) { drawChai(sx, y, w, h, board.locked[i], now); continue; }
+    const s = board.slots[i];
+    if (!s) continue;
+    let ox = 0, alpha = 1;
+    if (s.state === "incoming") { const p = easeBack((now - s.t0) / LEAVE_MS); ox = (1 - p) * -w * 0.6; alpha = clamp(p * 1.5, 0, 1); }
+    if (s.state === "departing") { const p = Math.pow(clamp((now - s.t0) / DEPART_MS, 0, 1), 2); ox = p * w * 1.1; alpha = 1 - p; }
+    const seats = Array.from({ length: s.bus.cap }, (_, k) => (k < s.ids.length && !inflight.has(s.ids[k]) ? s.ids[k] : null));
+    ctx.globalAlpha = Math.max(0, alpha);
+    drawSideBus(sx + 2 + ox, y + 1, w - 4, h - 2, COLORS[s.bus.color], s.bus.cap, seats, s.bus.id);
+    ctx.globalAlpha = 1;
+    if (s.state === "departing" && now - s.t0 < DEPART_MS * 0.8) {
+      const t = (now - s.t0) / DEPART_MS;
+      ctx.font = F(13, 800);
+      const tw = ctx.measureText("Pom pom!").width;
+      const bx = clamp(sx + w / 2 + ox * 0.5 - tw / 2 - 7, L.sceneX + 4, L.sceneX + L.sceneW - tw - 18);
+      const byy = y - 16 - t * 10;
+      ctx.globalAlpha = 1 - t;
+      ctx.fillStyle = "#fff"; rr(bx, byy, tw + 14, 20, 10); ctx.fill();
+      ctx.fillStyle = INK; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText("Pom pom!", bx + 7, byy + 11);
+      ctx.globalAlpha = 1;
+    }
+  }
+}
+
+function queueGeom() {
+  const s = L.qH * 0.82, step = s * 0.6;
+  return { s, step, x0: L.sceneX + 14 + step / 2, fy: L.qY + L.qH - 7 };
+}
+function drawQueue(board, now) {
+  const { s, step, x0, fy } = queueGeom();
+  const maxN = Math.max(1, Math.floor((L.sceneW - 28 - 46) / step));
+  const n = Math.min(maxN, board.queue.length);
+  const off = 1 - ease((now - board.lastBoard) / BOARD_MS);
+  ctx.fillStyle = "rgba(255,194,26,0.7)"; ellipse(x0, fy, s * 0.34, s * 0.1); ctx.fill();
+  for (let i = n - 1; i >= 0; i--) {
+    const id = board.boarded + i;
+    const bob = Math.abs(Math.sin(now / 240 + id * 1.7)) * s * 0.045;
+    drawPassenger(x0 + (i + off) * step, fy, s, COLORS[board.queue[i]], id, bob);
+  }
+  const rest = board.queue.length - n;
+  ctx.font = F(15, 800); ctx.textBaseline = "middle"; ctx.textAlign = "center";
+  if (rest > 0) {
+    const label = `+${rest}`, tw = ctx.measureText(label).width + 16;
+    const px = L.sceneX + L.sceneW - 10 - tw, py = L.qY + L.qH / 2 - 12;
+    ctx.fillStyle = INK; rr(px, py, tw, 24, 12); ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.fillText(label, px + tw / 2, py + 13);
+  } else if (!board.queue.length) {
+    ctx.fillStyle = MUTED; ctx.fillText("Sab sawar! All aboard", L.sceneX + L.sceneW / 2, L.qY + L.qH / 2);
+  }
+}
+function drawHops(board, now) {
+  const { s, x0, fy } = queueGeom();
+  for (const hp of board.hops) {
+    const t = (now - hp.t0) / HOP_MS;
+    if (t < 0 || t > 1) continue;
+    const tx = L.lotX + hp.slot * (L.slotW + L.bayGap) + L.slotW * 0.45;
+    const ty = L.slotY + L.slotH * 0.62;
+    const e = ease(t);
+    drawPassenger(x0 + (tx - x0) * e, fy + (ty - fy) * e - Math.sin(t * Math.PI) * s * 0.7, s * (1 - 0.4 * t), COLORS[hp.color], hp.id, 0);
+  }
+}
+
+// ---------- HUD ----------
+const BILAL = { skin: SKINS[1], kind: 4, hair: HAIRS[0], scarf: SCARVES[0] };
+function drawMiniLot(board, lx, ly, cell, now) {
+  const lw = cell * GW, lh = cell * GH;
+  ctx.fillStyle = "#1d2230"; rr(lx - 3, ly - 3, lw + 6, lh + 6, 7); ctx.fill();
+  ctx.fillStyle = "#555b67"; rr(lx - 1, ly - 1, lw + 2, lh + 2, 5); ctx.fill();
+  for (const b of board.buses) {
+    if (b.state !== "lot") continue;
+    const [x, y, w, h] = busRect(b, lx, ly, cell);
+    ctx.fillStyle = shade(COLORS[b.color], -0.25); rr(x + 0.8, y + 0.8, w - 1.6, h - 1.6, cell * 0.3); ctx.fill();
+    ctx.fillStyle = COLORS[b.color]; rr(x + 1.6, y + 1.6, w - 3.2, h - 3.2, cell * 0.25); ctx.fill();
+  }
+  for (const gt of board.goats) {
+    ctx.font = `${Math.round(cell * 1.1)}px ${EMOJI}`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("🐐", lx + gt.x * cell + cell / 2, ly + gt.y * cell + cell / 2);
+  }
+  if (now < board.frozenUntil) { ctx.fillStyle = "rgba(175,228,255,0.55)"; rr(lx - 1, ly - 1, lw + 2, lh + 2, 5); ctx.fill(); }
+}
+function drawOppCard(b, now) {
+  const x = L.colX + L.pad, y = L.oppY, w = L.colW - L.pad * 2, h = L.oppH;
+  const hitAge = now - (b.hitAt || -1e9);
+  const shake = hitAge < 400 ? Math.sin(hitAge / 25) * (1 - hitAge / 400) * 5 : 0;
+  ctx.save(); ctx.translate(shake, 0);
+  card(x, y, w, h, 20);
+  const mcell = Math.floor((h - 20) / GH);
+  const mx = x + w - mcell * GW - 13, my = y + (h - mcell * GH) / 2;
+  drawMiniLot(b, mx, my, mcell, now);
+  const ar = Math.min(25, h * 0.27), ax = x + 12 + ar, ay = y + h / 2;
+  ctx.fillStyle = "#ffd6e3"; circle(ax, ay, ar); ctx.fill();
+  ctx.save(); circle(ax, ay, ar); ctx.clip();
+  ctx.fillStyle = COLORS[2]; rr(ax - ar * 0.8, ay + ar * 0.45, ar * 1.6, ar, ar * 0.5); ctx.fill();
+  drawHead(ax, ay - ar * 0.05, ar * 0.5, game.oppLook, COLORS[2], true);
+  ctx.restore();
+  ctx.strokeStyle = PINK; ctx.lineWidth = 3; circle(ax, ay, ar); ctx.stroke();
+  const tx = ax + ar + 11, tw = mx - 14 - tx;
+  ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  let fs = 20;
+  ctx.font = F(fs, 800);
+  while (ctx.measureText(game.oppName).width > tw - 70 && fs > 13) ctx.font = F(--fs, 800);
+  ctx.fillStyle = INK; ctx.fillText(game.oppName, tx, y + h * 0.32);
+  const nw = ctx.measureText(game.oppName).width;
+  const tag = game.tag;
+  ctx.font = F(11, 800);
+  const pw = ctx.measureText(tag).width + 12;
+  ctx.fillStyle = "#eceef6"; rr(tx + nw + 7, y + h * 0.32 - 14, pw, 17, 8.5); ctx.fill();
+  ctx.fillStyle = MUTED; ctx.fillText(tag, tx + nw + 13, y + h * 0.32 - 1.5);
+  // progress
+  const by = y + h * 0.42, prog = b.departed / b.totalBuses;
+  ctx.fillStyle = "#e6e9f2"; rr(tx, by, tw, 10, 5); ctx.fill();
+  ctx.fillStyle = PINK; rr(tx, by, Math.max(10, tw * prog), 10, 5); ctx.fill();
+  // mini bays
+  const sh = Math.max(10, h * 0.15), sy = y + h * 0.6, sg = 4, sw = (tw - sg * (SLOTS - 1)) / SLOTS;
+  for (let i = 0; i < SLOTS; i++) {
+    const sx = tx + i * (sw + sg), s = b.slots[i];
+    ctx.fillStyle = "#eceef6"; rr(sx, sy, sw, sh, 4); ctx.fill();
+    if (b.slotLocked(i, now)) { ctx.fillStyle = "#e8413c"; rr(sx, sy, sw, sh * 0.45, 3); ctx.fill(); }
+    else if (s) {
+      ctx.fillStyle = COLORS[s.bus.color]; rr(sx, sy, sw, sh, 4); ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.75)"; rr(sx + 2, sy + sh - 4, (sw - 4) * (s.filled / s.bus.cap), 2.5, 1.2); ctx.fill();
+    }
+  }
+  ctx.fillStyle = MUTED; ctx.font = F(12, 700); ctx.textBaseline = "alphabetic";
+  ctx.fillText(`${b.totalBuses - b.departed} buses left, ${b.queue.length} waiting`, tx, y + h - 9);
+  ctx.restore();
+}
+
+// two-lane race: your bus vs the opponent's bus, position = share of buses cleared
+function drawRace(p, b, now) {
+  const x = L.lotX - KERB, w = L.sceneW, y = L.raceY, h = L.raceH;
+  ctx.fillStyle = "rgba(20,50,20,0.22)"; rr(x, y + 3, w, h, h / 2); ctx.fill();
+  ctx.fillStyle = "#3f4451"; rr(x, y, w, h, h / 2); ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 1.5; ctx.setLineDash([7, 6]);
+  ctx.beginPath(); ctx.moveTo(x + 60, y + h / 2); ctx.lineTo(x + w - 30, y + h / 2); ctx.stroke(); ctx.setLineDash([]);
+  // finish flag
+  const fx = x + w - 24, cs = 5;
+  for (let r = 0; r < Math.floor((h - 8) / cs); r++) for (let c = 0; c < 2; c++) {
+    ctx.fillStyle = (r + c) % 2 ? "#fff" : "#1d2230"; ctx.fillRect(fx + c * cs, y + 4 + r * cs, cs, cs);
+  }
+  ctx.font = F(10, 800); ctx.textAlign = "left"; ctx.textBaseline = "middle";
+  const lanes = [["YOU", p, "#2fbf62", y + h * 0.27], [game.oppName.toUpperCase().slice(0, 6), b, PINK, y + h * 0.73]];
+  const tx0 = x + 54, tx1 = fx - 34;
+  for (const [name, bd, col, ly] of lanes) {
+    ctx.fillStyle = col; ctx.fillText(name, x + 14, ly + 0.5);
+    const prog = bd.departed / bd.totalBuses;
+    const bx = tx0 + (tx1 - tx0) * prog;
+    const hop = Math.abs(Math.sin(now / 160 + (name === "YOU" ? 0 : 1.5))) * 1.2;
+    drawTopBus(bx, ly - 6 - hop, 30, 12, "R", col, name === "YOU" ? 11 : 12);
+  }
+}
+
+function drawBar(p, now) {
+  const x = L.colX + L.pad, y = L.barY, w = L.colW - L.pad * 2, h = L.barH;
+  card(x, y, w, h, 20);
+  const pulse = now - (p.attackAt || -1e9) < 600;
+  ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = MUTED; ctx.font = F(11, 800);
+  ctx.fillText("NEXT ATTACK", x + 14, y + 20);
+  for (let i = 0; i < 2; i++) {
+    const px = x + 14 + i * 34, py = y + 27;
+    ctx.fillStyle = i < p.meter || pulse ? PINK : "#e6e9f2";
+    rr(px, py, 30, 18, 6); ctx.fill();
+  }
+  ctx.font = `15px ${EMOJI}`; ctx.textBaseline = "middle";
+  ctx.globalAlpha = p.meter ? 1 : 0.5;
+  ctx.fillText("🐐❄️☕", x + 14 + 72, y + 37);
+  ctx.globalAlpha = 1;
+  const rx = x + w * 0.52, rw = x + w - 14 - rx;
+  ctx.textBaseline = "alphabetic"; ctx.fillStyle = INK; ctx.font = F(16, 800);
+  ctx.fillText("You", rx, y + 22);
+  ctx.textAlign = "right"; ctx.fillStyle = MUTED; ctx.font = F(12, 700);
+  ctx.fillText(`${p.totalBuses - p.departed} buses left`, rx + rw, y + 22);
+  ctx.fillStyle = "#e6e9f2"; rr(rx, y + 31, rw, 12, 6); ctx.fill();
+  ctx.fillStyle = "#2fbf62"; rr(rx, y + 31, Math.max(12, rw * (p.departed / p.totalBuses)), 12, 6); ctx.fill();
+}
+
+function drawFlash(board, cx, cy, now, maxW) {
+  const f = board.flash;
+  if (!f) return;
+  const t = (now - f.t0) / 1900;
+  if (t > 1) { board.flash = null; return; }
+  let size = 17;
+  ctx.font = F(size, 800);
+  while (ctx.measureText(f.text).width > maxW - 32 && size > 11) ctx.font = F(--size, 800);
+  const tw = ctx.measureText(f.text).width;
+  const sc = easeBack(Math.min(1, t * 6));
+  ctx.save();
+  ctx.globalAlpha = t < 0.8 ? 1 : 1 - (t - 0.8) / 0.2;
+  ctx.translate(cx, cy - t * 14); ctx.scale(sc, sc);
+  ctx.fillStyle = "rgba(0,0,0,0.25)"; rr(-tw / 2 - 14, -size * 0.8 + 3, tw + 28, size * 1.7, size * 0.85); ctx.fill();
+  ctx.fillStyle = f.color; rr(-tw / 2 - 14, -size * 0.8, tw + 28, size * 1.7, size * 0.85); ctx.fill();
+  ctx.fillStyle = INK; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(f.text, 0, 1);
+  ctx.restore();
+}
+
+// ---------- main draw ----------
+function draw(now) {
+  if (BG) ctx.drawImage(BG, 0, 0, W, H);
+  else { ctx.fillStyle = "#6fbf52"; ctx.fillRect(0, 0, W, H); }
+  if (!L.cell) return;
+  if (!game) { drawStop(idleBoard, now); drawLot(idleBoard, now); return; }
+  const { player: p, bot: b } = game;
+  drawOppCard(b, now);
+  if (L.hasRace) drawRace(p, b, now);
+  drawStop(p, now);
+  drawLot(p, now);
+  drawBar(p, now);
+  drawFlash(p, L.lotX + L.lotW / 2, L.lotY + Math.min(L.lotH * 0.14, 50), now, L.lotW);
+  if (now < game.startAt) {
+    const left = (game.startAt - now) / 1000;
+    const label = left > 1.8 ? "3" : left > 1.1 ? "2" : left > 0.4 ? "1" : "Chalo!";
+    const seg = left > 1.8 ? left - 1.8 : left > 1.1 ? left - 1.1 : left > 0.4 ? left - 0.4 : left;
+    const segLen = left > 1.8 ? 0.8 : 0.7;
+    const sc = easeBack(clamp((segLen - seg) / 0.25, 0, 1));
+    ctx.fillStyle = "rgba(20,24,40,0.45)"; rr(L.lotX, L.lotY, L.lotW, L.lotH, 9); ctx.fill();
+    ctx.save();
+    ctx.translate(L.lotX + L.lotW / 2, L.lotY + L.lotH / 2); ctx.scale(sc, sc);
+    ctx.font = F(Math.round(L.cell * (label.length > 1 ? 1.3 : 2.1)), 800);
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    outlinedText(label, 0, 0, "#ffc21a", 10);
+    ctx.restore();
+  }
+}
+
+// a decorative idle lot behind the start screen
+const idleLevel = generateLevel(7);
+const idleBoard = new Board(idleLevel, "idle");
+
+// hero bus on the start card
+function drawHero() {
+  const hc = document.getElementById("hero");
+  if (!hc || !hc.clientWidth) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  const w = hc.clientWidth, h = hc.clientHeight;
+  hc.width = Math.round(w * dpr); hc.height = Math.round(h * dpr);
+  const main = ctx;
+  ctx = hc.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  drawSideBus(w * 0.04, h * 0.04, w * 0.92, h * 0.9, COLORS[0], 4, [3, 8, 14, 21], 5);
+  ctx = main;
+}
+
+// ---------- loop ----------
+function frame(now) {
+  if (game && !game.over && now >= game.startAt) {
+    game.player.update(now);
+    if (game.mode === "online") netFrame(now);
+    else { game.bot.update(now); game.ai.tick(game.bot, now); }
+    checkEnd();
+  } else if (game && game.mode === "online") netFrame(now);
+  draw(now);
+  requestAnimationFrame(frame);
+}
+
+// ---------- input ----------
+canvas.addEventListener("pointerdown", (e) => {
+  if (!game || game.over) return;
+  const now = performance.now();
+  if (now < game.startAt) return;
+  const r = canvas.getBoundingClientRect();
+  const px = e.clientX - r.left, py = e.clientY - r.top;
+  const cx = Math.floor((px - L.lotX) / L.cell), cy = Math.floor((py - L.lotY) / L.cell);
+  if (cx < 0 || cy < 0 || cx >= GW || cy >= GH) return;
+  const b = game.player.busAt(cx, cy);
+  if (!b) return;
+  const res = game.player.tryTap(b, now);
+  if (res === "ok") { sfx.tap(); buzz(8); }
+  else if (res === "blocked") { sfx.bonk(); buzz(25); }
+  else if (res === "full") { sfx.bonk(); buzz(25); game.player.setFlash("No free bay! Wait for a bus to fill.", now, "#ffb199"); }
+  else if (res === "frozen") { sfx.bonk(); buzz(25); }
+});
+
+// ---------- screens ----------
+const $ = (id) => document.getElementById(id);
+const SCREENS = ["startScreen", "friendScreen", "waitScreen", "endScreen"];
+function showScreen(id) { for (const s of SCREENS) $(s).hidden = s !== id; }
+const randSeed = () => (Math.random() * 1e9) | 0;
+function startBot(opts, seed) {
+  audio();
+  showScreen(null);
+  newGame(seed, opts);
+}
+document.querySelectorAll("[data-diff]").forEach((btn) => btn.addEventListener("click", () => {
+  leaveRoom();
+  startBot({ mode: "bot", diff: btn.dataset.diff, oppName: "Bilal", tag: btn.dataset.diff.toUpperCase() }, randSeed());
+}));
+$("rematchBtn").addEventListener("click", () => {
+  if (game && game.mode === "online") return requestRematch();
+  startBot(lastOpts, game ? game.seed : randSeed());
+});
+$("newBtn").addEventListener("click", () => startBot(lastOpts, randSeed()));
+$("menuBtn").addEventListener("click", () => { leaveRoom(); game = null; showScreen("startScreen"); });
+
+// player name (kept on this device only)
+const nickInput = $("nick");
+function cleanNick(s) { return String(s || "").replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁠-⁯]/g, "").trim().slice(0, 12); }
+function loadNick() {
+  let n = "";
+  try { n = localStorage.getItem("brd-nick") || ""; } catch (e) { /* storage blocked */ }
+  return cleanNick(n) || "Player" + (10 + Math.floor(Math.random() * 90));
+}
+nickInput.value = loadNick();
+nickInput.addEventListener("change", () => {
+  nickInput.value = cleanNick(nickInput.value) || loadNick();
+  try { localStorage.setItem("brd-nick", nickInput.value); } catch (e) { /* storage blocked */ }
+  if (net.room) net.room.presence({ nick: nickInput.value }).catch(() => {});
+});
+const myNick = () => cleanNick(nickInput.value) || "Player";
+
+// ---------- online: room capability ----------
+const ARTIFACT_URL = "https://claude.ai/artifact/CcryiosP7PUxFU3rnESzoD";
+// Public build: the website anyone can open, and the Supabase project that links the phones.
+// The key is Supabase's publishable (browser) key; it only allows realtime messaging here.
+const PUBLIC_URL = "https://zubairs-gallery.github.io/bus-rush-duel/";
+const SUPA_URL = "";
+const SUPA_KEY = "";
+const SUPA_JS = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js";
+const SHARE_URL = PUBLIC_URL || ARTIFACT_URL;
+const BOT_NAMES = ["Hamza", "Ayesha", "Usman", "Zara", "Faizan", "Hira", "Danish", "Mahnoor"];
+const net = {
+  room: null, game: null, mode: null, tag: "", roomName: "",
+  round: 0, myReady: 0, oppPeer: null, oppSeenAt: 0, oppNick: "Friend",
+  want: null, qmTimer: 0, roomTimer: 0, lastSent: "", lastSentAt: 0, oppGoneHandled: false,
+};
+const cleanPeer = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 20);
+function myPeer(r) { const p = r.peers().find((x) => x.sameTab); return p ? p.peer : null; }
+
+// Transport, in order: #localroom test stand-in; claude.ai live room (inside the artifact);
+// Supabase Realtime (the public website, where there is no claude.ai).
+async function initNet() {
+  if (location.hash.includes("localroom")) net.room = makeLocalRoom();
+  else if (window.claude && typeof window.claude.use === "function") {
+    try { net.room = await window.claude.use("room"); } catch (e) { net.room = null; }
+  }
+  if (!net.room && SUPA_URL && SUPA_KEY) {
+    try { await loadScript(SUPA_JS); net.room = makeSupaRoom(SUPA_URL, SUPA_KEY); } catch (e) { net.room = null; }
+  }
+  updateOnlineUI();
+  if (!net.room) return;
+  net.room.onPeers(() => { lobbyTick(); updateOnlineUI(); }, () => { net.room = null; updateOnlineUI(); });
+  net.room.presence({ nick: myNick() }).catch(() => {});
+}
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = src; s.async = true; s.crossOrigin = "anonymous";
+    s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+function updateOnlineUI() {
+  const ok = !!net.room;
+  $("friendBtn").disabled = !ok;
+  $("quickBtn").disabled = !ok;
+  $("onlineNote").hidden = ok;
+  if (ok) {
+    const n = net.room.peers().length;
+    $("quickSub").textContent = n > 1 ? `${n} players here now, or a bot if nobody's free` : "A random player, or a bot if nobody's free";
+  }
+}
+
+// --- quick match: pair up through lobby presence ---
+function startQuickMatch() {
+  audio();
+  leaveRoom();
+  net.mode = "quick";
+  net.want = null;
+  $("waitTitle").textContent = "Finding a player";
+  $("waitText").textContent = "Looking for someone to race. If nobody's free in a few seconds, you'll get a bot.";
+  showScreen("waitScreen");
+  net.room.presence({ nick: myNick(), qm: true, want: null, room: null }).catch(() => {});
+  clearTimeout(net.qmTimer);
+  net.qmTimer = setTimeout(() => { if (net.mode === "quick") startBotFallback(); }, 10000);
+  lobbyTick();
+}
+function lobbyTick() {
+  if (net.mode !== "quick" || !net.room) return;
+  const me = myPeer(net.room);
+  if (!me) return;
+  const peers = net.room.peers();
+  // someone already matched with me and opened the room
+  const host = peers.find((p) => !p.sameTab && typeof p.presence.room === "string" && p.presence.room.split("-").slice(1).includes(cleanPeer(me)));
+  if (host) return matched(host.presence.room, host);
+  const waiting = peers.filter((p) => !p.sameTab && p.presence.qm === true).sort((a, b) => (a.peer < b.peer ? -1 : 1));
+  const cand = waiting.find((p) => !p.presence.want || p.presence.want === me);
+  const want = cand ? cand.peer : null;
+  if (net.want !== want) { net.want = want; net.room.presence({ want }).catch(() => {}); }
+  if (cand && cand.presence.want === me) {
+    const name = "q-" + [cleanPeer(me), cleanPeer(cand.peer)].sort().join("-");
+    net.room.presence({ qm: null, room: name }).catch(() => {});
+    matched(name, cand);
+  }
+}
+function matched(name, peer) {
+  net.mode = "matched";
+  clearTimeout(net.qmTimer);
+  net.room.presence({ qm: null, want: null }).catch(() => {});
+  net.oppNick = cleanNick(peer.presence.nick) || "Player";
+  $("waitTitle").textContent = "Player found!";
+  $("waitText").textContent = `Racing ${net.oppNick}. Get ready...`;
+  enterGameRoom(name, "ONLINE");
+}
+function startBotFallback() {
+  leaveRoom();
+  const name = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
+  startBot({ mode: "bot", diff: Math.random() < 0.5 ? "easy" : "normal", oppName: name, tag: "BOT" }, randSeed());
+}
+
+// --- friend rooms: 4-letter code ---
+const CODE_CHARS = "abcdefghjkmnpqrstuvwxyz23456789";
+function makeCode() { let c = ""; for (let i = 0; i < 4; i++) c += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]; return c; }
+function openFriendScreen() {
+  leaveRoom();
+  $("friendStart").hidden = false;
+  $("friendRoom").hidden = true;
+  $("friendErr").hidden = true;
+  $("codeInput").value = "";
+  showScreen("friendScreen");
+}
+function joinFriendRoom(code) {
+  audio();
+  net.mode = "friend";
+  $("roomCode").textContent = code.toUpperCase();
+  $("roomStatus").textContent = "Waiting for your friend to join...";
+  $("friendStart").hidden = true;
+  $("friendRoom").hidden = false;
+  $("friendErr").hidden = true;
+  net.room.presence({ qm: null, want: null, room: null }).catch(() => {});
+  enterGameRoom("f-" + code, "FRIEND");
+}
+function friendError(msg) {
+  $("friendErr").textContent = msg;
+  $("friendErr").hidden = false;
+}
+async function shareInvite() {
+  const code = $("roomCode").textContent;
+  const text = `Bus Rush Duel! Race me 🚌\nOpen ${SHARE_URL}\ntap "Play a friend" and paste this message in the code box.\nRoom: ${code}`;
+  try {
+    if (navigator.share) { await navigator.share({ text }); return; }
+  } catch (e) { if (e && e.name === "AbortError") return; }
+  try {
+    await navigator.clipboard.writeText(text);
+    $("shareBtn").innerHTML = "Copied!<small>Paste it in WhatsApp</small>";
+  } catch (e) {
+    $("roomStatus").textContent = `Send your friend: ${SHARE_URL} and code ${code}`;
+  }
+}
+
+// --- the game room (2 players). Host = lower peer label: picks each round's seed. ---
+async function enterGameRoom(name, tag) {
+  net.tag = tag; net.roomName = name; net.round = 0; net.myReady = 1;
+  net.oppPeer = null; net.oppSeenAt = Date.now(); net.oppGoneHandled = false; net.lastSent = "";
+  try {
+    net.game = await net.room.join(name);
+  } catch (e) {
+    net.game = null;
+    const msg = `Couldn't open the room (${(e && e.code) || "error"}). Try again.`;
+    if (net.mode === "friend") friendError(msg); else { $("waitText").textContent = msg; }
+    return;
+  }
+  net.game.presence({ nick: myNick(), ready: 1, round: null, seed: null, st: null }).catch(() => {});
+  net.game.onPeers(() => roomTick(), () => roomLost());
+  clearInterval(net.roomTimer);
+  net.roomTimer = setInterval(roomTick, 250);
+  // a quick-match partner who never shows up: go back to searching
+  if (tag === "ONLINE") setTimeout(() => { if (net.game && net.game.name === name && !net.oppPeer) startQuickMatch(); }, 8000);
+  roomTick();
+}
+function roomPlayers() {
+  return net.game.peers().slice().sort((a, b) => (a.peer < b.peer ? -1 : 1)).slice(0, 2);
+}
+function roomTick() {
+  if (!net.game) return;
+  const players = roomPlayers();
+  const me = players.find((p) => p.sameTab);
+  if (!me && net.game.peers().length > 2) {
+    if (net.mode === "friend") friendError("That room already has two players. Make a new room.");
+    leaveRoom();
+    return;
+  }
+  const opp = players.find((p) => !p.sameTab);
+  if (opp) {
+    net.oppPeer = opp.peer;
+    net.oppSeenAt = Date.now();
+    net.oppNick = cleanNick(opp.presence.nick) || net.oppNick || "Friend";
+    if (net.mode === "friend" && !game) $("roomStatus").textContent = `${net.oppNick} joined! Starting...`;
+  } else if (net.oppPeer && Date.now() - net.oppSeenAt > 3500) {
+    return oppLeft();
+  }
+  if (game && game.mode === "online") netFrame(performance.now());
+  if (!opp || !me) return;
+  const isHost = players[0] === me;
+  if (isHost) {
+    if (net.myReady > net.round && (opp.presence.ready | 0) >= net.myReady) {
+      const seed = randSeed();
+      net.round = net.myReady;
+      net.game.presence({ round: net.round, seed }).catch(() => {});
+      startOnline(seed);
+    }
+  } else {
+    const hr = opp.presence.round | 0;
+    if (hr > net.round && hr === net.myReady && typeof opp.presence.seed === "number") {
+      net.round = hr;
+      startOnline(opp.presence.seed);
+    }
+  }
+}
+function startOnline(seed) {
+  showScreen(null);
+  newGame(seed, { mode: "online", oppName: net.oppNick, tag: net.tag, round: net.round });
+  publishState(performance.now(), true);
+}
+function netFrame(now) {
+  if (!net.game || !game || game.mode !== "online") return;
+  const opp = net.game.peers().find((p) => p.peer === net.oppPeer);
+  const st = opp && opp.presence.st;
+  if (st && st.r === game.round) {
+    applyRemote(game.bot, st, now);
+    if (now >= game.startAt) receiveAttacks(st, now);
+  }
+  publishState(now, false);
+}
+function publishState(now, force) {
+  if (!net.game || !game || game.mode !== "online") return;
+  if (!force && now - net.lastSentAt < 120) return;
+  const s = JSON.stringify(encodeState(game.player));
+  if (s === net.lastSent) return;
+  net.lastSent = s;
+  net.lastSentAt = now;
+  net.game.presence({ st: JSON.parse(s) }).catch(() => {});
+}
+function requestRematch() {
+  if (!net.game) { showScreen("startScreen"); return; }
+  net.myReady = net.round + 1;
+  net.game.presence({ ready: net.myReady }).catch(() => {});
+  $("rematchBtn").disabled = true;
+  $("rematchBtn").innerHTML = `Waiting...<small>for ${escapeHtml(net.oppNick)}</small>`;
+}
+function oppLeft() {
+  if (net.oppGoneHandled) return;
+  net.oppGoneHandled = true;
+  const name = net.oppNick;
+  if (game && game.mode === "online" && !game.over && performance.now() >= game.startAt) {
+    finish("win", `${name} left the race. Walkover win!`);
+  } else if (game && game.mode === "online") {
+    $("endText").textContent = `${name} left the room.`;
+    $("rematchBtn").disabled = true;
+    $("rematchBtn").innerHTML = "Rematch<small>Opponent left</small>";
+  } else if (net.mode === "matched") {
+    startQuickMatch();
+  } else if (net.mode === "friend") {
+    $("roomStatus").textContent = `${name} left. Waiting for someone to join...`;
+    net.oppPeer = null; net.oppGoneHandled = false;
+  }
+}
+function roomLost() {
+  if (game && game.mode === "online" && !game.over) finish("lose", "Connection lost. Check your internet and try again.");
+  leaveRoom();
+}
+function leaveRoom() {
+  clearTimeout(net.qmTimer);
+  clearInterval(net.roomTimer);
+  net.roomTimer = 0;
+  if (net.game) { net.game.leave().catch(() => {}); net.game = null; }
+  if (net.room && net.mode) net.room.presence({ qm: null, want: null, room: null }).catch(() => {});
+  net.mode = null;
+  net.oppPeer = null;
+}
+
+$("friendBtn").addEventListener("click", openFriendScreen);
+$("quickBtn").addEventListener("click", startQuickMatch);
+$("createBtn").addEventListener("click", () => joinFriendRoom(makeCode()));
+// Pull the room code out of whatever was pasted: the bare code, "code 78YK", or the whole invite message.
+// Codes only use CODE_CHARS (no o, i, l, 0, 1), so words like "code" or "play" never match; the last match wins.
+function extractCode(text) {
+  const toks = String(text || "").toLowerCase().split(/[^a-z0-9]+/)
+    .filter((t) => t.length === 4 && [...t].every((c) => CODE_CHARS.includes(c)));
+  return toks.length ? toks[toks.length - 1] : null;
+}
+$("joinBtn").addEventListener("click", () => {
+  const code = extractCode($("codeInput").value);
+  if (!code) return friendError("That doesn't look like a room code. It's 4 characters, like 78YK.");
+  $("codeInput").value = code.toUpperCase();
+  joinFriendRoom(code);
+});
+$("codeInput").addEventListener("keydown", (e) => { if (e.key === "Enter") $("joinBtn").click(); });
+$("codeInput").addEventListener("paste", (e) => {
+  const text = e.clipboardData && e.clipboardData.getData("text");
+  const code = extractCode(text);
+  if (!code) return;
+  e.preventDefault();
+  $("codeInput").value = code.toUpperCase();
+  $("joinBtn").click();
+});
+$("codeInput").addEventListener("input", () => {
+  const v = $("codeInput").value;
+  if (v.length > 4) { const code = extractCode(v); if (code) $("codeInput").value = code.toUpperCase(); }
+});
+$("shareBtn").addEventListener("click", shareInvite);
+$("friendBack").addEventListener("click", () => { leaveRoom(); showScreen("startScreen"); });
+$("waitCancel").addEventListener("click", () => { leaveRoom(); showScreen("startScreen"); });
+
+// Supabase Realtime room with the same shape as the claude.ai room (presence / peers / onPeers / join).
+// Each player's presence object travels as a broadcast (sent on change plus a 2 s heartbeat);
+// Supabase presence tracking is used only to know who is still connected. The lobby channel is
+// opened lazily, the first time someone searches for a quick match, so idle visitors cost nothing.
+function makeSupaRoom(url, key) {
+  const client = window.supabase.createClient(url, key, { auth: { persistSession: false }, realtime: { params: { eventsPerSecond: 20 } } });
+  const me = (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, "") : Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).slice(0, 16);
+  function mk(name, onReady) {
+    const ch = client.channel("brd-" + name, { config: { broadcast: { self: false }, presence: { key: me } } });
+    let mine = {}, snap = Object.freeze([]), live = false, ready = false;
+    let online = new Set();
+    const others = new Map(), subs = new Set(), errs = new Set();
+    const rebuild = () => {
+      const list = [{ peer: me, isMe: true, sameTab: true, kind: "viewer", guest: false, by: null, presence: mine }];
+      for (const [peer, o] of others) if (online.has(peer)) list.push({ peer, isMe: false, sameTab: false, kind: "viewer", guest: false, by: null, presence: o.p });
+      snap = Object.freeze(list);
+      subs.forEach((f) => f({ peers: snap }));
+    };
+    const send = () => { if (live) ch.send({ type: "broadcast", event: "p", payload: { peer: me, p: mine } }).catch(() => {}); };
+    ch.on("broadcast", { event: "p" }, ({ payload }) => {
+      if (!payload || typeof payload.peer !== "string" || payload.peer === me) return;
+      others.set(payload.peer, { p: payload.p && typeof payload.p === "object" ? payload.p : {}, at: Date.now() });
+      rebuild();
+    });
+    ch.on("broadcast", { event: "hello" }, () => send());
+    ch.on("presence", { event: "sync" }, () => {
+      online = new Set(Object.keys(ch.presenceState()));
+      for (const k of [...others.keys()]) if (!online.has(k)) others.delete(k);
+      rebuild();
+    });
+    ch.on("presence", { event: "join" }, () => send());
+    ch.subscribe(async (status) => {
+      if (status === "SUBSCRIBED") {
+        live = true;
+        try { await ch.track({ t: Date.now() }); } catch (e) { /* presence optional */ }
+        ch.send({ type: "broadcast", event: "hello", payload: {} }).catch(() => {});
+        send();
+        if (!ready) { ready = true; onReady && onReady(null); }
+      } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+        live = false;
+        if (!ready) { ready = true; onReady && onReady(new Error(status)); }
+      }
+    });
+    const iv = setInterval(send, 2000);
+    rebuild();
+    return {
+      name,
+      presence(patch) {
+        mine = { ...mine };
+        for (const k in patch) { if (patch[k] === null) delete mine[k]; else mine[k] = patch[k]; }
+        send(); rebuild();
+        return Promise.resolve();
+      },
+      peers: () => snap,
+      onPeers(f, onErr) { subs.add(f); if (onErr) errs.add(onErr); setTimeout(() => f({ peers: snap }), 0); return () => subs.delete(f); },
+      connected: () => live,
+      leave() { clearInterval(iv); live = false; return client.removeChannel(ch).then(() => {}, () => {}); },
+    };
+  }
+  // lazy lobby
+  let lobby = null, lobbyMine = {};
+  const lobbySubs = new Set();
+  const ensureLobby = () => {
+    if (lobby) return;
+    lobby = mk("lobby");
+    lobby.presence(lobbyMine);
+    lobbySubs.forEach((f) => lobby.onPeers(f));
+  };
+  const EMPTY = Object.freeze([]);
+  return {
+    presence(patch) {
+      if (lobby) return lobby.presence(patch);
+      lobbyMine = { ...lobbyMine };
+      for (const k in patch) { if (patch[k] === null) delete lobbyMine[k]; else lobbyMine[k] = patch[k]; }
+      if (patch.qm === true) ensureLobby();
+      return Promise.resolve();
+    },
+    peers: () => (lobby ? lobby.peers() : EMPTY),
+    onPeers(f) { lobbySubs.add(f); if (lobby) lobby.onPeers(f); return () => lobbySubs.delete(f); },
+    connected: () => true,
+    join(name) {
+      return new Promise((resolve, reject) => {
+        let r = null;
+        const t = setTimeout(() => reject({ code: "upstream_error" }), 10000);
+        r = mk(name, (err) => { clearTimeout(t); if (err) { r.leave(); reject({ code: "upstream_error" }); } else resolve(r); });
+      });
+    },
+  };
+}
+
+// #localroom: a stand-in room over BroadcastChannel so two tabs on localhost can test online play
+function makeLocalRoom() {
+  const me = Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10);
+  function mk(name) {
+    const bc = new BroadcastChannel("brd-" + name);
+    let mine = {}, snap = Object.freeze([]);
+    const others = new Map(), subs = new Set();
+    const rebuild = () => {
+      snap = Object.freeze([{ peer: me, isMe: true, sameTab: true, presence: mine }, ...[...others].map(([peer, o]) => ({ peer, isMe: false, sameTab: false, presence: o.p }))]);
+      subs.forEach((f) => f({ peers: snap }));
+    };
+    const send = () => bc.postMessage({ t: "p", peer: me, p: mine });
+    bc.onmessage = (e) => {
+      const m = e.data;
+      if (m.t === "p") { others.set(m.peer, { p: m.p, at: Date.now() }); rebuild(); }
+      else if (m.t === "bye") { others.delete(m.peer); rebuild(); }
+      else if (m.t === "hello") send();
+    };
+    const iv = setInterval(() => {
+      send();
+      let ch = false;
+      for (const [k, o] of others) if (Date.now() - o.at > 4000) { others.delete(k); ch = true; }
+      if (ch) rebuild();
+    }, 1000);
+    bc.postMessage({ t: "hello" });
+    rebuild();
+    return {
+      name,
+      presence(patch) { mine = { ...mine }; for (const k in patch) { if (patch[k] === null) delete mine[k]; else mine[k] = patch[k]; } send(); rebuild(); return Promise.resolve(); },
+      peers: () => snap,
+      onPeers(f) { subs.add(f); setTimeout(() => f({ peers: snap }), 0); return () => subs.delete(f); },
+      connected: () => true,
+      leave() { clearInterval(iv); bc.postMessage({ t: "bye", peer: me }); bc.close(); return Promise.resolve(); },
+    };
+  }
+  const lobby = mk("lobby");
+  return { ...lobby, join: (n) => Promise.resolve(mk(n)) };
+}
+
+// ---------- test hooks (prototype only) ----------
+function solveCheck(seed) {
+  const b = new Board(generateLevel(seed), "t");
+  let now = 1000, next = 0;
+  for (let step = 0; step < 40000; step++) {
+    now += 30;
+    b.update(now);
+    if (b.result) return b.result;
+    const front = b.queue[0];
+    const served = b.slots.some((s) => s && s.bus.color === front && s.filled < s.bus.cap);
+    if (next < b.buses.length && (!served || b.usedSlots() < 2)) {
+      const bus = b.buses[next];
+      if (b.tryTap(bus, now) === "ok") next++;
+    }
+  }
+  return "timeout";
+}
+function botVsBot(seed, diff) {
+  const b = new Board(generateLevel(seed), "t");
+  const ai = new Bot(DIFFS[diff], seed);
+  let now = 1000;
+  for (let step = 0; step < 20000; step++) {
+    now += 30;
+    b.update(now);
+    if (b.result) return { result: b.result, secs: (now - 1000) / 1000 };
+    ai.tick(b, now);
+  }
+  return { result: "timeout" };
+}
+window.BusRush = { generateLevel, solveCheck, botVsBot, Bot, state: () => game, net: () => net };
+
+resize();
+drawHero();
+if (document.fonts) document.fonts.ready.then(() => { FONT_CACHE = null; drawHero(); });
+requestAnimationFrame(frame);
+initNet();
+
+// #demo: a bot plays your side too (used to screenshot the prototype mid-game)
+if (location.hash.startsWith("#demo")) {
+  startBot({ mode: "bot", diff: "normal", oppName: "Bilal", tag: "NORMAL" }, 42);
+  const now = performance.now(), ff = parseInt(location.hash.slice(5) || "9000", 10);
+  const helper = new Bot({ think: 900, mistake: 0 }, 99);
+  game.startAt = now - ff;
+  for (let t = game.startAt; t < now; t += 30) {
+    game.player.update(t); game.bot.update(t); game.ai.tick(game.bot, t); helper.tick(game.player, t);
+  }
+  applyAttack(game.player, "goat", now, "Bilal");
+  setInterval(() => { if (game && !game.over) helper.tick(game.player, performance.now()); }, 100);
+}
+})();
+</script>
+
+</html>
