@@ -166,6 +166,7 @@ button.toggle.off { color: var(--muted); background: #f3f4f8; }
 .howto summary::-webkit-details-marker { display: none; }
 .howto[open] summary { margin-bottom: 10px; }
 .note.err { color: #c8215a; font-weight: 600; }
+.note a { color: inherit; }
 .banner.slim { padding: 18px 18px 22px; }
 .bounce { animation: bounce 0.7s ease-in-out infinite alternate; }
 @keyframes bounce { to { transform: translateY(-8px) rotate(-4deg); } }
@@ -194,6 +195,7 @@ button.toggle.off { color: var(--muted); background: #f3f4f8; }
           <span class="label">Your name</span>
           <input id="nick" maxlength="12" autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="done">
         </label>
+        <p class="note err" id="nickErr" role="alert" hidden>Pick another name</p>
         <button id="friendBtn" class="primary big">Play a friend<small>Share a room code, each on your own phone</small></button>
         <button id="quickBtn" class="big alt">Quick match<small id="quickSub">A random player, or a bot if nobody's free</small></button>
         <p class="note" id="onlineNote" hidden>Online play isn't available right now. Practice still works.</p>
@@ -217,6 +219,7 @@ button.toggle.off { color: var(--muted); background: #f3f4f8; }
             <li><b>4</b><span>Every 2 buses you send off throws a goat, a freeze or a chai stall at your opponent.</span></li>
           </ul>
         </details>
+        <p class="note"><a href="privacy.html">Privacy</a></p>
       </div>
     </div>
   </div>
@@ -1792,21 +1795,56 @@ $("lbWeek").addEventListener("click", () => openLeaderboard("week"));
 $("lbAll").addEventListener("click", () => openLeaderboard("all"));
 $("lbBack").addEventListener("click", () => showScreen("startScreen"));
 
+// ---------- nickname filter (same list and rule as the app and the leaderboard server) ----------
+// The list comes from the app repo's shared/blocked-words.json; refresh it with
+// `node scripts/sync-web-names.mjs <this file>` there. Never edit the generated block by hand.
+/* BEGIN BLOCKED WORDS (generated) */
+const BLOCKED_WORDS = ["fuck","fucker","fucking","motherfucker","fuk","fck","phuck","fvck","fuq","fucktard","fuckface","fuckyou","stfu","mofo","shit","shitty","bullshit","shithead","shyt","bitch","bitches","biatch","bytch","sonofabitch","bastard","asshole","arsehole","dumbass","jackass","ass","cunts","cuntface","cunty","dickhead","dickface","cocksucker","blowjob","handjob","rimjob","jerkoff","wanker","bollocks","bugger","prick","douche","douchebag","pussy","pussies","penis","vagina","boobs","nipple","nipples","sperm","cum","cumshot","jizz","sex","sexy","porn","porno","pornhub","nude","nudes","orgasm","erotic","hentai","incest","molest","slut","sluts","whore","whores","hooker","prostitute","horny","dildo","fetish","bdsm","buttsex","pedophile","paedophile","pedofile","retard","retarded","mongoloid","idiot","imbecile","niggers","faggot","faggots","fag","kike","chink","chinks","tranny","lesbo","dyke","spastic","hitler","heilhitler","genocide","jihadist","terrorist","kafir","kafirs","kuffar","murtad","qadiani","rafzi","nasbi","madarchod","maderchod","madrchod","mderchod","maachod","machod","motherchod","maakichut","mkc","bhenchod","behenchod","behnchod","bhnchod","bahenchod","behanchod","benchod","bhainchod","sisterchod","bsdk","chutiya","chutia","chutiye","chutiyapa","chootiya","chutmarike","chodu","chodna","chodi","chudai","chudwa","gandu","gaandu","gandmara","gaandmara","gandfat","bhosdike","bhosdi","bhosd","bhosri","bhosra","bhosriwala","lauda","lawda","lavda","laude","phudi","phuddi","fuddi","muthmar","mutthmar","harami","haramzada","haramzadi","haramzade","haraamzada","haramkhor","haramkhore","kanjar","kanjri","kanjari","kanjra","randwa","randibaz","randikhana","randikay","bhadwa","bhadwe","bhadwi","bhadva","bharwe","gashti","gasti","dayus","daiyus","dayyus","kamina","kameena","kamine","kameeni","kuttay","kuttey","kutiya","kuttiya","kutta kameena","suwar","suwar ki aulad","kutte ki aulad","haram ki aulad","harami ki aulad","hijra","hijda","hijre","khusra","khusre","khusray","chamar","chuhra","chuhre","bhangi","tharki","bakchod","bakchodi","chinal","chinaal","lanat","bewakoof","gandi aulad","gandi gaali","چوتیا","چوتیے","چوتیاپا","مادرچود","مادر چود","بہنچود","بہن چود","ماں چود","بھنچود","بھوسڑی","بھوسڑا","بھوسڑی کے","گانڈ","گانڈو","گانڈ مار","لوڑا","لوڑے","پھدی","پھدے","چود","چودو","چودنا","چوت","لن","حرامی","حرامزادہ","حرامزادی","حرامزادے","حرام خور","کتیا","کتے کی اولاد","کتی","کنجر","کنجری","رنڈی","رنڈوا","بھڑوا","بھڑوے","بھڑوی","گشتی","کمینہ","کمینی","کمینے","سور","سور کی اولاد","ہیجڑا","ہیجڑہ","خسرا","خسرے","کافر","قادیانی","رافضی","ناصبی","مرتد","دیوث","طوائف","بدکار","بدذات","ولدالزنا","زانی","زانیہ"];
+const BLOCKED_EXACT = ["cunt","nigger","nigga","kutta","kuta","chut","chod","choot","rape","raped","paki","nazi","gand","gaand","randi","lund","lora","suar","tatti","tits","titty","twat","cock","dick","arse","anal","anus","coon","homo","negro","semen","moron","milf","pedo","muth","jhat","ullu","dalla","dalal","kutti","kuti","chutad","lanti","kamini","bharwa"];
+/* END BLOCKED WORDS */
+const NICK_SUBS = { 0: "o", 1: "i", 3: "e", 4: "a", 5: "s", 7: "t", "@": "a", $: "s" };
+// lowercase, map digits/symbols to letters, keep only letters (any script), collapse repeated letters
+function normalizeNick(s) {
+  return String(s || "").toLowerCase().replace(/[013457@$]/g, (c) => NICK_SUBS[c])
+    .replace(/[^\p{L}]/gu, "").replace(/(\p{L})\1+/gu, "$1");
+}
+const NICK_EXACT = new Set(), NICK_CONTAINED = [];
+for (const w of BLOCKED_EXACT) { const n = normalizeNick(w); if (n) NICK_EXACT.add(n); }
+for (const w of BLOCKED_WORDS) {
+  const n = normalizeNick(w);
+  if (!n) continue;
+  if ([...n].length <= 3) NICK_EXACT.add(n); else NICK_CONTAINED.push(n);
+}
+// short words only on a whole-name match (so innocent names that contain them pass)
+function isBlockedNick(s) {
+  const n = normalizeNick(s);
+  return !!n && (NICK_EXACT.has(n) || NICK_CONTAINED.some((w) => n.includes(w)));
+}
+/* END NICK FILTER */
+
 // player name (kept on this device only)
 const nickInput = $("nick");
 function cleanNick(s) { return String(s || "").replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁠-⁯]/g, "").trim().slice(0, 12); }
+// a name to show for someone else: "Player" when it is blocked, "" when there is none
+function shownNick(s) { const n = cleanNick(s); return n && isBlockedNick(n) ? "Player" : n; }
 function loadNick() {
   let n = "";
   try { n = localStorage.getItem("brd-nick") || ""; } catch (e) { /* storage blocked */ }
-  return cleanNick(n) || "Player" + (10 + Math.floor(Math.random() * 90));
+  n = cleanNick(n);
+  return n && !isBlockedNick(n) ? n : "Player" + (10 + Math.floor(Math.random() * 90));
 }
-nickInput.value = loadNick();
+let lastNick = loadNick();
+nickInput.value = lastNick;
 nickInput.addEventListener("change", () => {
-  nickInput.value = cleanNick(nickInput.value) || loadNick();
+  const n = cleanNick(nickInput.value);
+  const bad = !!n && isBlockedNick(n);
+  $("nickErr").hidden = !bad;
+  nickInput.value = bad ? lastNick : n || loadNick();
+  lastNick = nickInput.value;
   try { localStorage.setItem("brd-nick", nickInput.value); } catch (e) { /* storage blocked */ }
   if (net.room) net.room.presence({ nick: nickInput.value }).catch(() => {});
 });
-const myNick = () => cleanNick(nickInput.value) || "Player";
+const myNick = () => { const n = cleanNick(nickInput.value); return n && !isBlockedNick(n) ? n : "Player"; };
 
 // ---------- online: room capability ----------
 const ARTIFACT_URL = "https://claude.ai/artifact/CcryiosP7PUxFU3rnESzoD";
@@ -1818,10 +1856,16 @@ const SUPA_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 const SUPA_JS = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js";
 const SHARE_URL = PUBLIC_URL || ARTIFACT_URL;
 const BOT_NAMES = ["Hamza", "Ayesha", "Usman", "Zara", "Faizan", "Hira", "Danish", "Mahnoor"];
+// Protocol version, sent in every presence object (lobby and game room). Bump it with any change
+// to generateLevel, board timings or the race-state fields; the Android app checks the same field.
+const PV = 1;
+const peerPv = (presence) => (typeof presence.pv === "number" ? presence.pv : 1); // missing = 1
+const MISMATCH = "Your friend has a different version. Update the app (or reload the website).";
 const net = {
   room: null, game: null, mode: null, tag: "", roomName: "",
   round: 0, myReady: 0, oppPeer: null, oppSeenAt: 0, oppNick: "Friend",
   want: null, qmTimer: 0, roomTimer: 0, lastSent: "", lastSentAt: 0, oppGoneHandled: false,
+  advertised: false, // our lobby presence names a q- room
 };
 const cleanPeer = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 20);
 function myPeer(r) { const p = r.peers().find((x) => x.sameTab); return p ? p.peer : null; }
@@ -1839,7 +1883,7 @@ async function initNet() {
   updateOnlineUI();
   if (!net.room) return;
   net.room.onPeers(() => { lobbyTick(); updateOnlineUI(); }, () => { net.room = null; updateOnlineUI(); });
-  net.room.presence({ nick: myNick() }).catch(() => {});
+  net.room.presence({ pv: PV, nick: myNick() }).catch(() => {});
 }
 function loadScript(src) {
   return new Promise((resolve, reject) => {
@@ -1869,7 +1913,7 @@ function startQuickMatch() {
   $("waitTitle").textContent = "Finding a player";
   $("waitText").textContent = "Looking for someone to race. If nobody's free in a few seconds, you'll get a bot.";
   showScreen("waitScreen");
-  net.room.presence({ nick: myNick(), qm: true, want: null, room: null }).catch(() => {});
+  net.room.presence({ pv: PV, nick: myNick(), qm: true, want: null, room: null }).catch(() => {});
   clearTimeout(net.qmTimer);
   net.qmTimer = setTimeout(() => { if (net.mode === "quick") startBotFallback(); }, 10000);
   lobbyTick();
@@ -1878,17 +1922,19 @@ function lobbyTick() {
   if (net.mode !== "quick" || !net.room) return;
   const me = myPeer(net.room);
   if (!me) return;
-  const peers = net.room.peers();
+  // only pair with players on the same protocol version
+  const others = net.room.peers().filter((p) => !p.sameTab && peerPv(p.presence) === PV);
   // someone already matched with me and opened the room
-  const host = peers.find((p) => !p.sameTab && typeof p.presence.room === "string" && p.presence.room.split("-").slice(1).includes(cleanPeer(me)));
+  const host = others.find((p) => typeof p.presence.room === "string" && p.presence.room.split("-").slice(1).includes(cleanPeer(me)));
   if (host) return matched(host.presence.room, host);
-  const waiting = peers.filter((p) => !p.sameTab && p.presence.qm === true).sort((a, b) => (a.peer < b.peer ? -1 : 1));
+  const waiting = others.filter((p) => p.presence.qm === true).sort((a, b) => (a.peer < b.peer ? -1 : 1));
   const cand = waiting.find((p) => !p.presence.want || p.presence.want === me);
   const want = cand ? cand.peer : null;
   if (net.want !== want) { net.want = want; net.room.presence({ want }).catch(() => {}); }
   if (cand && cand.presence.want === me) {
     const name = "q-" + [cleanPeer(me), cleanPeer(cand.peer)].sort().join("-");
     net.mode = "matched"; // before any presence call: our own update must not re-enter matching
+    net.advertised = true;
     net.room.presence({ qm: null, room: name }).catch(() => {});
     matched(name, cand);
   }
@@ -1897,7 +1943,7 @@ function matched(name, peer) {
   net.mode = "matched";
   clearTimeout(net.qmTimer);
   net.room.presence({ qm: null, want: null }).catch(() => {});
-  net.oppNick = cleanNick(peer.presence.nick) || "Player";
+  net.oppNick = shownNick(peer.presence.nick) || "Player";
   $("waitTitle").textContent = "Player found!";
   $("waitText").textContent = `Racing ${net.oppNick}. Get ready...`;
   enterGameRoom(name, "ONLINE");
@@ -1960,7 +2006,7 @@ async function enterGameRoom(name, tag) {
     if (net.mode === "friend") friendError(msg); else { $("waitText").textContent = msg; }
     return;
   }
-  net.game.presence({ nick: myNick(), ready: 1, round: null, seed: null, st: null }).catch(() => {});
+  net.game.presence({ pv: PV, nick: myNick(), ready: 1, round: null, seed: null, st: null }).catch(() => {});
   net.game.onPeers(() => roomTick(), () => roomLost());
   clearInterval(net.roomTimer);
   net.roomTimer = setInterval(roomTick, 250);
@@ -1968,23 +2014,36 @@ async function enterGameRoom(name, tag) {
   if (tag === "ONLINE") setTimeout(() => { if (net.game && net.game.name === name && !net.oppPeer) startQuickMatch(); }, 8000);
   roomTick();
 }
+// The two players, sorted by peer label. Until we have an opponent we are the newcomer: in a
+// crowded room we step out (roomTick), so a late joiner never displaces a player. Once paired,
+// we keep that opponent whoever else turns up.
 function roomPlayers() {
-  return net.game.peers().slice().sort((a, b) => (a.peer < b.peer ? -1 : 1)).slice(0, 2);
+  const sorted = net.game.peers().slice().sort((a, b) => (a.peer < b.peer ? -1 : 1));
+  return net.oppPeer === null && net.round === 0 ? sorted.slice(0, 2) : sorted.filter((p) => p.sameTab || p.peer === net.oppPeer);
 }
 function roomTick() {
   if (!net.game) return;
-  const players = roomPlayers();
-  const me = players.find((p) => p.sameTab);
-  if (!me && net.game.peers().length > 2) {
+  if (net.oppPeer === null && net.round === 0 && net.game.peers().length > 2) {
     if (net.mode === "friend") friendError("That room already has two players. Make a new room.");
     leaveRoom();
     return;
   }
+  const players = roomPlayers();
+  const me = players.find((p) => p.sameTab);
   const opp = players.find((p) => !p.sameTab);
   if (opp) {
     net.oppPeer = opp.peer;
     net.oppSeenAt = Date.now();
-    net.oppNick = cleanNick(opp.presence.nick) || net.oppNick || "Friend";
+    if (net.advertised && net.room) {
+      // the partner found the room: stop advertising it, so a later search never lands here
+      net.advertised = false;
+      net.room.presence({ room: null }).catch(() => {});
+    }
+    net.oppNick = shownNick(opp.presence.nick) || net.oppNick || "Friend";
+    if (peerPv(opp.presence) !== PV) {
+      $(net.mode === "friend" ? "roomStatus" : "waitText").textContent = MISMATCH;
+      return;
+    }
     if (net.mode === "friend" && !game) $("roomStatus").textContent = `${net.oppNick} joined! Starting...`;
   } else if (net.oppPeer && Date.now() - net.oppSeenAt > 3500) {
     return oppLeft();
@@ -2068,6 +2127,7 @@ function leaveRoom() {
   if (net.room && net.mode) net.room.presence({ qm: null, want: null, room: null }).catch(() => {});
   net.mode = null;
   net.oppPeer = null;
+  net.advertised = false;
 }
 
 $("friendBtn").addEventListener("click", openFriendScreen);
