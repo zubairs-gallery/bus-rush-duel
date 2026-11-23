@@ -1753,7 +1753,8 @@ async function lbFetch(period) {
 }
 function lbRow(el, r, label) {
   const rk = document.createElement("span"); rk.className = "rk"; rk.textContent = label || String(r.rank);
-  const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = r.name || "Player";
+  // same display filter as opponent names: covers rows stored before the server filter
+  const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = shownNick(r.name) || "Player";
   const sub = document.createElement("span"); sub.className = "sub";
   sub.textContent = `${r.wins} win${r.wins === 1 ? "" : "s"}` + (r.best ? `, fastest ${r.best}s` : "");
   nm.appendChild(sub);

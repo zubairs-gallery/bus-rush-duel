@@ -44,30 +44,34 @@
 
     <p class="meta">Published by Xubair (&ldquo;we&rdquo;).</p>
 
-    <p class="lead">Bus Rush Duel is a simple racing puzzle game. It has no ads, no accounts and no analytics, and we do not sell your data. The only things that leave your device are your nickname and an anonymous player ID, used for online play and the leaderboard.</p>
+    <p class="lead">Bus Rush Duel is a simple racing puzzle game. It has no ads, no accounts and no analytics, and we do not sell your data. Data leaves your device only for online races and for the leaderboard, and this page lists exactly what is sent in each case.</p>
 
     <h2>What stays on your device</h2>
     <ul>
       <li>Your nickname, your music and sound settings, and your anonymous player ID are saved on your device.</li>
-      <li>Practice games against the bot run entirely on your device and send nothing.</li>
+      <li>Practice games against the bot are played on your device. Nothing is sent while you play, but a practice win is sent to the leaderboard, as described below.</li>
       <li>This data is removed when you uninstall the app or clear its data (on the website: when you clear the site's data in your browser).</li>
+      <li>If Android's backup is turned on for your phone, Android may include this data (your nickname, player ID and settings) in your Google backup and restore it when you set up a new device or reinstall the app. That backup is managed by Google and your device settings, not by us.</li>
     </ul>
 
     <h2>Online play</h2>
-    <p>When you play a friend or use Quick match, the game connects to our game server, which runs on <a href="https://supabase.com">Supabase</a>. To set up and run the race, it passes these to the other player:</p>
+    <p>When you play a friend or use Quick match, the game connects to our game server, which runs on <a href="https://supabase.com">Supabase</a>. To find an opponent and run the race, it sends:</p>
     <ul>
       <li>your nickname,</li>
-      <li>the state of your board during the race (where your buses are, for example) and the room code.</li>
+      <li>a random connection code made for this visit (not your player ID), the room you are in (the friend room code or the quick-match room) and the game's version number,</li>
+      <li>whether you are ready for a race or a rematch, and each race's starting number (which picks the bus lot),</li>
+      <li>the state of your board during the race (where your buses and passengers are, what you sent at your opponent, and whether you won or lost).</li>
     </ul>
-    <p>This is relayed live between the two players and is not saved by the game.</p>
+    <p>This is relayed live to the other players in the same room or searching for a match, and is not saved by the game. Each race you win is also sent to the leaderboard, as below.</p>
 
     <h2>The leaderboard</h2>
-    <p>When you win a race, the game sends the result to the leaderboard. It stores:</p>
+    <p>When you win a race, online or in practice, the game sends the result to the leaderboard (a walkover, when your opponent leaves, is not sent). It sends and stores:</p>
     <ul>
       <li>your anonymous player ID, a random code made on your device that is not linked to your name, email or phone,</li>
       <li>your nickname,</li>
-      <li>who you beat (a real player or the bot's difficulty), the points and the race time, and when you won.</li>
+      <li>who you beat (a real player or the bot's difficulty) and the race time.</li>
     </ul>
+    <p>The server stores these with the points for the win and the time it was received. When you open the leaderboard, or after a win, the game also sends your player ID so it can show your own rank.</p>
     <p>Nicknames on the leaderboard are public: anyone who opens the leaderboard in the app or on the website can see them. Please don't use your full name or anything personal as your nickname. Nicknames with offensive words are refused, and are shown and stored as &ldquo;Player&rdquo;.</p>
     <p>Supabase hosts this data for us and may keep standard technical logs, such as IP addresses, under <a href="https://supabase.com/privacy">its privacy policy</a>.</p>
 
@@ -86,7 +90,7 @@
     <p>Bus Rush Duel is not directed at children under 13. We do not knowingly collect personal information from children under 13. If you believe a child has used the game and provided information, contact us and we will help.</p>
 
     <h2>Removing a leaderboard entry</h2>
-    <p>To have a leaderboard entry removed, email <a href="mailto:zubair812@gmail.com">zubair812@gmail.com</a> with the nickname as it appears on the leaderboard (and roughly when the wins were played, if you know). We will remove it. You can delete everything stored on your device yourself, at any time, by clearing the app's data or uninstalling it.</p>
+    <p>To have a leaderboard entry removed, email <a href="mailto:zubair812@gmail.com">zubair812@gmail.com</a> with the nickname as it appears on the leaderboard (and roughly when the wins were played, if you know). We will remove it. You can delete everything stored on your device yourself, at any time, by clearing the app's data or uninstalling it (and, if you use Android backup, by removing the app's backup in your Google account settings).</p>
 
     <h2>Changes to this policy</h2>
     <p>If we change this policy, we will update this page and its effective date.</p>
